@@ -1,0 +1,34 @@
+plugins {
+    id 'java'  // Use single quotes, not id('java')
+    id 'antlr'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    antlr 'org.antlr:antlr4:4.13.1'
+    implementation 'org.antlr:antlr4-runtime:4.13.1'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+generateGrammarSource {
+    arguments += ['-visitor', '-no-listener', '-entrypoint', 'program']
+    // Fix the File assignment issue:
+    outputDirectory = layout.buildDirectory.dir('generated-src/antlr/main').get().asFile
+}
+
+sourceSets {
+    main {
+        java {
+            // Use the new syntax for buildDir:
+            srcDir layout.buildDirectory.dir('generated-src/antlr/main')
+            // Include the gen directory where ANTLR files are currently generated
+            srcDir 'gen'
+        }
+    }
+}
+
+// Make the compile task depend on grammar generation
+compileJava.dependsOn generateGrammarSource

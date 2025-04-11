@@ -1,0 +1,7 @@
+-- Hello World program
+-- Shows basic program structure and output
+-- Expected output: "Hello, World!"
+
+start
+  print "Hello, World!"
+finish
