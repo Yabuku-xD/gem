@@ -1,0 +1,38 @@
+plugins {
+    id 'java'
+    id 'antlr'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    antlr 'org.antlr:antlr4:4.13.1'
+    implementation 'org.antlr:antlr4-runtime:4.13.1'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+// Configure ANTLR
+generateGrammarSource {
+    maxHeapSize = "64m"
+    arguments += ['-visitor', '-no-listener']
+    outputDirectory = file("${buildDir}/generated-src/antlr/main")
+}
+
+// Add generated sources to compilation
+sourceSets {
+    main {
+        java {
+            srcDir file("${buildDir}/generated-src/antlr/main")
+        }
+    }
+}
+
+// Set Java encoding to UTF-8
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+// Make sure grammar is generated before Java compilation
+compileJava.dependsOn generateGrammarSource
