@@ -4,6 +4,10 @@ import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
 import java.io.IOException;
 
+// Import the generated lexer and parser classes
+import gemLexer;
+import gemParser;
+
 public class SimpleTestRig {
     public static void main(String[] args) throws IOException {
         if (args.length != 1) {
@@ -15,15 +19,25 @@ public class SimpleTestRig {
         CharStream input = CharStreams.fromFileName(args[0]);
 
         // Create a lexer using the input
-        // NOTE: This will use the generated lexer class after building
         gemLexer lexer = new gemLexer(input);
 
         // Create a token stream from the lexer
         CommonTokenStream tokens = new CommonTokenStream(lexer);
 
         // Create a parser using the token stream
-        // NOTE: This will use the generated parser class after building
         gemParser parser = new gemParser(tokens);
+        
+        // Add error handling similar to GemParserTest
+        parser.removeErrorListeners();
+        parser.addErrorListener(new BaseErrorListener() {
+            @Override
+            public void syntaxError(Recognizer<?, ?> recognizer, Object offendingSymbol,
+                                    int line, int charPositionInLine,
+                                    String msg, RecognitionException e) {
+                System.err.println("line " + line + ":" + charPositionInLine + " " + msg);
+                System.exit(1);
+            }
+        });
 
         // Begin parsing at the 'program' rule
         ParseTree tree = parser.program();
