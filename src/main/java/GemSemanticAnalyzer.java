@@ -22,7 +22,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
         globalScope.define("char", "type", "char", 0, 0);
     }
 
-    // Changed to return String instead of void to match the ParseTreeVisitor interface
     public String analyzeTree(ParseTree tree) {
         // First pass: Register all types and function signatures
         if (tree instanceof gemParser.ProgramContext) {
@@ -58,12 +57,223 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
         }
     }
 
-    // Changed to public to match the gemVisitor interface
     @Override
     public String visitDeclaration(gemParser.DeclarationContext decl) {
         // Implementation details for analyzing declarations
-        // This includes analyzing function/method bodies
         return null;
+    }
+
+    @Override
+    public String visitVariableDeclaration(gemParser.VariableDeclarationContext ctx) {
+        // Check variable type
+        String typeName = null;
+
+        if (ctx.type() != null) {
+            typeName = getTypeText(ctx.type());
+            if (!isTypeValid(typeName)) {
+                errors.add(new UnresolvedTypeError(
+                        "Undefined type: " + typeName,
+                        ctx.type().getStart().getLine(),
+                        ctx.type().getStart().getCharPositionInLine()));
+                return null;
+            }
+        } else if (ctx.struct_type() != null) {
+            typeName = ctx.struct_type().ID().getText();
+            if (!isTypeValid(typeName)) {
+                errors.add(new UnresolvedTypeError(
+                        "Undefined struct type: " + typeName,
+                        ctx.struct_type().ID().getSymbol().getLine(),
+                        ctx.struct_type().ID().getSymbol().getCharPositionInLine()));
+                return null;
+            }
+        } else if (ctx.class_type() != null) {
+            typeName = ctx.class_type().ID().getText();
+            if (!isTypeValid(typeName)) {
+                errors.add(new UnresolvedTypeError(
+                        "Undefined class type: " + typeName,
+                        ctx.class_type().ID().getSymbol().getLine(),
+                        ctx.class_type().ID().getSymbol().getCharPositionInLine()));
+                return null;
+            }
+        } else if (ctx.message_type() != null) {
+            typeName = ctx.message_type().ID().getText();
+            if (!isTypeValid(typeName)) {
+                errors.add(new UnresolvedTypeError(
+                        "Undefined message type: " + typeName,
+                        ctx.message_type().ID().getSymbol().getLine(),
+                        ctx.message_type().ID().getSymbol().getCharPositionInLine()));
+                return null;
+            }
+        }
+
+        // Check initialization value if present
+        if (ctx.expression() != null) {
+            String exprType = getExpressionType(ctx.expression());
+            if (exprType != null && typeName != null) {
+                if (!isTypeCompatible(typeName, exprType)) {
+                    errors.add(new TypeMismatchError(
+                            "Cannot assign " + exprType + " to " + typeName,
+                            ctx.expression().getStart().getLine(),
+                            ctx.expression().getStart().getCharPositionInLine()));
+                }
+            }
+        }
+
+        // Register the variable in current scope
+        String varName = ctx.ID().getText();
+        definedVariables.put(varName, typeName);
+
+        return typeName;
+    }
+
+    @Override
+    public String visitAssignment(gemParser.AssignmentContext ctx) {
+        String targetType = null;
+
+        // Check if variable is defined
+        if (ctx.ID().size() > 0) {
+            String varName = ctx.ID(0).getText();
+            if (!definedVariables.containsKey(varName)) {
+                errors.add(new UndefinedVariableError(
+                        "Variable used before definition: " + varName,
+                        ctx.ID(0).getSymbol().getLine(),
+                        ctx.ID(0).getSymbol().getCharPositionInLine()));
+                return null;
+            }
+
+            targetType = definedVariables.get(varName);
+        }
+
+        // Check expression type
+        String exprType = getExpressionType(ctx.expression(0));
+
+        // Check type compatibility
+        if (targetType != null && exprType != null) {
+            if (!isTypeCompatible(targetType, exprType)) {
+                errors.add(new TypeMismatchError(
+                        "Cannot assign " + exprType + " to " + targetType,
+                        ctx.expression(0).getStart().getLine(),
+                        ctx.expression(0).getStart().getCharPositionInLine()));
+            }
+        }
+
+        return targetType;
+    }
+
+    @Override
+    public String visitPrimaryExpression(gemParser.PrimaryExpressionContext ctx) {
+        if (ctx.ID() != null) {
+            String varName = ctx.ID().getText();
+            if (!definedVariables.containsKey(varName)) {
+                errors.add(new UndefinedVariableError(
+                        "Variable used before definition: " + varName,
+                        ctx.ID().getSymbol().getLine(),
+                        ctx.ID().getSymbol().getCharPositionInLine()));
+                return null;
+            }
+            return definedVariables.get(varName);
+        } else if (ctx.literal() != null) {
+            return visitLiteral(ctx.literal());
+        } else if (ctx.expression() != null) {
+            return getExpressionType(ctx.expression());
+        }
+        return null;
+    }
+
+    @Override
+    public String visitLiteral(gemParser.LiteralContext ctx) {
+        if (ctx.INTEGER_LITERAL() != null) return "integer";
+        if (ctx.FLOAT_LITERAL() != null) return "number";
+        if (ctx.STRING_LITERAL() != null) return "string";
+        if (ctx.CHAR_LITERAL() != null) return "char";
+        if (ctx.BOOLEAN_LITERAL() != null) return "boolean";
+        if (ctx.arrayLiteral() != null) return "array";
+        return null;
+    }
+
+    private String getExpressionType(gemParser.ExpressionContext ctx) {
+        if (ctx == null) return null;
+        return visitExpression(ctx);
+    }
+
+    @Override
+    public String visitExpression(gemParser.ExpressionContext ctx) {
+        return visitLogicalExpression(ctx.logicalExpression());
+    }
+
+    @Override
+    public String visitLogicalExpression(gemParser.LogicalExpressionContext ctx) {
+        if (ctx.AND() != null || ctx.OR() != null) {
+            // Check that both operands are boolean
+            for (gemParser.ComparisonExpressionContext expr : ctx.comparisonExpression()) {
+                String type = visitComparisonExpression(expr);
+                if (type != null && !type.equals("boolean")) {
+                    errors.add(new TypeMismatchError(
+                            "Logical operator requires boolean operands, found: " + type,
+                            expr.getStart().getLine(),
+                            expr.getStart().getCharPositionInLine()));
+                }
+            }
+            return "boolean";
+        }
+        return visitComparisonExpression(ctx.comparisonExpression(0));
+    }
+
+    @Override
+    public String visitComparisonExpression(gemParser.ComparisonExpressionContext ctx) {
+        if (ctx.LT() != null || ctx.GT() != null || ctx.LE() != null ||
+                ctx.GE() != null || ctx.EQ() != null || ctx.NEQ() != null) {
+            // Comparison operators result in boolean
+            return "boolean";
+        }
+        return visitAdditiveExpression(ctx.additiveExpression(0));
+    }
+
+    @Override
+    public String visitAdditiveExpression(gemParser.AdditiveExpressionContext ctx) {
+        if (ctx.additiveExpression().size() > 1) {
+            String leftType = visitMultiplicativeExpression(ctx.multiplicativeExpression(0));
+            for (int i = 1; i < ctx.multiplicativeExpression().size(); i++) {
+                String rightType = visitMultiplicativeExpression(ctx.multiplicativeExpression(i));
+
+                // Check type compatibility for addition/subtraction
+                if (leftType != null && rightType != null) {
+                    if (!isAdditiveCompatible(leftType, rightType)) {
+                        errors.add(new TypeMismatchError(
+                                "Cannot perform additive operation on " + leftType + " and " + rightType,
+                                ctx.multiplicativeExpression(i).getStart().getLine(),
+                                ctx.multiplicativeExpression(i).getStart().getCharPositionInLine()));
+                    }
+                }
+
+                // String concatenation results in string
+                if (leftType != null && leftType.equals("string") ||
+                        rightType != null && rightType.equals("string")) {
+                    return "string";
+                }
+
+                // Numeric operations result in number or integer
+                if (leftType != null && leftType.equals("number") ||
+                        rightType != null && rightType.equals("number")) {
+                    return "number";
+                }
+            }
+            return leftType;
+        }
+        return visitMultiplicativeExpression(ctx.multiplicativeExpression(0));
+    }
+
+    private boolean isAdditiveCompatible(String leftType, String rightType) {
+        // String concatenation
+        if (leftType.equals("string") || rightType.equals("string"))
+            return true;
+
+        // Numeric operations
+        if ((leftType.equals("integer") || leftType.equals("number")) &&
+                (rightType.equals("integer") || rightType.equals("number")))
+            return true;
+
+        return false;
     }
 
     private void registerStruct(gemParser.StructDeclarationContext ctx) {

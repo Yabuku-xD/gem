@@ -4,6 +4,8 @@ import org.antlr.v4.runtime.dfa.DFA;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.misc.*;
 import org.antlr.v4.runtime.tree.*;
+
+import java.util.Collection;
 import java.util.List;
 import java.util.Iterator;
 import java.util.ArrayList;
@@ -2694,7 +2696,10 @@ public class gemParser extends Parser {
 			if ( visitor instanceof gemVisitor ) return ((gemVisitor<? extends T>)visitor).visitAdditiveExpression(this);
 			else return visitor.visitChildren(this);
 		}
-	}
+
+        public Collection<Object> additiveExpression() {
+        }
+    }
 
 	public final AdditiveExpressionContext additiveExpression() throws RecognitionException {
 		AdditiveExpressionContext _localctx = new AdditiveExpressionContext(_ctx, getState());
