@@ -1,0 +1,5 @@
+-- undefined_var.gem
+start
+  print name  -- Using 'name' before it's defined
+  string name = "John"
+finish

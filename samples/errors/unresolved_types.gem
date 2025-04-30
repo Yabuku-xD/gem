@@ -1,0 +1,6 @@
+-- unresolved_types.gem
+start
+  Employee e  -- Employee type not defined
+  e.name = "John"
+  print e.name
+finish

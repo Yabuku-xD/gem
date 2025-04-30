@@ -1,0 +1,6 @@
+-- invalid_syntax.gem
+start
+  print "Missing a closing quotation  -- No closing quote
+  if then print "Hello"  -- Missing condition
+  for i from 1 to  -- Missing loop bound
+finish

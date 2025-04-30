@@ -1,0 +1,17 @@
+-- duplicate_types.gem
+struct Person
+  string name
+  integer age
+end struct
+
+struct Person  -- Duplicate definition
+  string firstName
+  string lastName
+  integer age
+end struct
+
+start
+  Person p
+  p.name = "John"
+  print p.name
+finish
