@@ -231,7 +231,7 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
 
     @Override
     public String visitAdditiveExpression(gemParser.AdditiveExpressionContext ctx) {
-        if (ctx.additiveExpression().size() > 1) {
+        if (ctx.multiplicativeExpression().size() > 1) {
             String leftType = visitMultiplicativeExpression(ctx.multiplicativeExpression(0));
             for (int i = 1; i < ctx.multiplicativeExpression().size(); i++) {
                 String rightType = visitMultiplicativeExpression(ctx.multiplicativeExpression(i));

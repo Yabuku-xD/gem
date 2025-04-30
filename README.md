@@ -9,6 +9,33 @@ A beginner-friendly programming language with clear syntax and intuitive structu
 - Sensible defaults: Reduces boilerplate code for common patterns
 - Consistent syntax: Similar patterns for similar constructs
 
+## Building the Compiler:
+To build the compiler:
+run `./gradlew clean build` and `./gradlew uberJar`
+
+## Running the Compiler:
+The compiler accepts a source file and a flag to indicate at which stage to stop the compilation process: <br>
+`java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar <source_file> --stop-at <lexing|parsing|semantic>`
+<br> For example:
+`java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/hello.gem --stop-at lexing`
+
+## Compiler Stages:
+
+- Lexing: Performs lexical analysis and outputs the tokens found in the source code.
+- Parsing: Performs parsing and outputs the parse tree structure.
+- Semantic: Performs semantic analysis and outputs symbol tables and any errors.
+
+## Error Detection:
+The compiler can detect various types of errors:
+
+- Lexical errors: Invalid tokens or character sequences.
+- Syntax errors: Invalid grammar or structure.
+- Semantic errors:
+  - Duplicate type definitions.
+  - Unresolved type references.
+  - Usage of variables before definition.
+  - Type mismatches in expressions and assignments.
+
 ## Addressing Open Questions:
 
 ### Valid identifier characters:
