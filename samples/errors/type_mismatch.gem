@@ -1,0 +1,6 @@
+-- type_mismatch.gem
+start
+  integer age = "Twenty"  -- String assigned to integer
+  string name = 42        -- Integer assigned to string
+  print age + name        -- Adding incompatible types
+finish

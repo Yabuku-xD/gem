@@ -118,12 +118,6 @@ public interface gemVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitClassDeclaration(gemParser.ClassDeclarationContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link gemParser#method}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitMethod(gemParser.MethodContext ctx);
-	/**
 	 * Visit a parse tree produced by {@link gemParser#messageDeclaration}.
 	 * @param ctx the parse tree
 	 * @return the visitor result

@@ -1,0 +1,4 @@
+-- invalid_tokens.gem
+start
+  print "Hello, World!" @ # $  -- Invalid tokens
+finish

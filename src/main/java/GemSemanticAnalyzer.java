@@ -166,7 +166,7 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
         }
 
         // Register methods
-        for (gemParser.MethodContext method : ctx.method()) {
+        for (gemParser.FunctionDeclarationContext method : ctx.functionDeclaration()) {
             String methodName = method.ID().getText();
             int methodLine = method.ID().getSymbol().getLine();
             int methodColumn = method.ID().getSymbol().getCharPositionInLine();
