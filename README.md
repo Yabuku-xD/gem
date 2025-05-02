@@ -35,6 +35,43 @@ The compiler can detect various types of errors:
   - Unresolved type references.
   - Usage of variables before definition.
   - Type mismatches in expressions and assignments.
+### Test duplicate type definitions
+`java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/duplicate_types.gem --stop-at semantic`
+
+### Test unresolved type references
+`java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/unresolved_types.gem --stop-at semantic`
+
+### Test variables used before definition
+`java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/undefined_var.gem --stop-at semantic`
+
+### Test type mismatches
+`java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/type_mismatch.gem --stop-at semantic`
+
+### Test invalid syntax
+`java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/invalid_syntax.gem --stop-at parsing`
+
+### Test invalid tokens
+`java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/invalid_tokens.gem --stop-at lexing`
+
+### Expected Output:
+```Global Scope:
+integer (type, integer, defined) at 0:0
+number (type, number, defined) at 0:0
+string (type, string, defined) at 0:0
+boolean (type, boolean, defined) at 0:0
+char (type, char, defined) at 0:0
+Person (struct, Person, defined) at 2:0
+
+Type Tables:
+Person:
+name (field, string, defined) at 3:2
+age (field, integer, defined) at 4:2
+
+Function Tables:
+
+Semantic Errors:
+line 6:7 Duplicate type definition: Person
+```
 
 ## Addressing Open Questions:
 
