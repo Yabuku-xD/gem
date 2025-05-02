@@ -6,15 +6,12 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
     private SymbolTable currentScope = globalScope;
     private List<CompilationError> errors = new ArrayList<>();
 
-    // Symbol tables for types and functions
     private Map<String, SymbolTable> typeTables = new HashMap<>();
     private Map<String, SymbolTable> functionTables = new HashMap<>();
 
-    // Track variables defined in the current scope
     private Map<String, String> definedVariables = new HashMap<>();
 
     public GemSemanticAnalyzer() {
-        // Initialize with built-in types
         globalScope.define("integer", "type", "integer", 0, 0);
         globalScope.define("number", "type", "number", 0, 0);
         globalScope.define("string", "type", "string", 0, 0);
@@ -23,7 +20,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
     }
 
     public String analyzeTree(ParseTree tree) {
-        // First pass: Register all types and function signatures
         if (tree instanceof gemParser.ProgramContext) {
             gemParser.ProgramContext ctx = (gemParser.ProgramContext) tree;
 

@@ -19,7 +19,7 @@ STRUCT: 'struct';
 EXTENDS: 'extends';
 CLASS: 'class';
 IS: 'is';
-MESSAGE: 'message';
+IS_MESSAGE: 'message'; // Changed from MESSAGE to IS_MESSAGE for clarity
 REF: 'ref';
 PRINT: 'print';
 RETURN: 'return';
@@ -77,8 +77,7 @@ program
     ;
 
 declaration
-    : messageDeclaration
-    | structDeclaration
+    : structDeclaration
     | classDeclaration
     | functionDeclaration
     ;
@@ -107,7 +106,6 @@ variableDeclaration
     : type ID (ASSIGN expression)?
     | struct_type ID
     | class_type ID
-    | message_type ID
     ;
 
 type
@@ -125,10 +123,6 @@ struct_type
     ;
 
 class_type
-    : ID
-    ;
-
-message_type
     : ID
     ;
 
@@ -160,7 +154,7 @@ functionDeclaration
     ;
 
 structDeclaration
-    : STRUCT ID (EXTENDS ID)? field* END STRUCT
+    : STRUCT ID (EXTENDS ID)? (IS IS_MESSAGE)? field* END STRUCT
     ;
 
 field
@@ -169,12 +163,6 @@ field
 
 classDeclaration
     : CLASS ID (IS ID)? (field | functionDeclaration)* END CLASS
-    ;
-
-// Removed method rule since it's identical to functionDeclaration
-
-messageDeclaration
-    : MESSAGE ID field* END MESSAGE
     ;
 
 parameterList
@@ -188,7 +176,7 @@ parameter
 functionCall
     : ID LPAREN argumentList? RPAREN
     | ID DOT ID LPAREN argumentList? RPAREN  // Method call
-    | ID ARROW ID LPAREN argumentList? RPAREN // Message passing
+    | ID ARROW ID LPAREN argumentList? RPAREN // Message passing (for structs marked as messages)
     ;
 
 argumentList
