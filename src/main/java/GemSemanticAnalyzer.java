@@ -3,7 +3,6 @@ import java.util.*;
 
 public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
     private SymbolTable globalScope = new SymbolTable();
-    private SymbolTable currentScope = globalScope;
     private List<CompilationError> errors = new ArrayList<>();
 
     private Map<String, SymbolTable> typeTables = new HashMap<>();
