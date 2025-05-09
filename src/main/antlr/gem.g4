@@ -79,6 +79,7 @@ program
 declaration
     : structDeclaration
     | classDeclaration
+    | messageDeclaration
     | functionDeclaration
     ;
 
@@ -106,6 +107,7 @@ variableDeclaration
     : type ID (ASSIGN expression)?
     | struct_type ID
     | class_type ID
+    | message_type ID
     ;
 
 type
@@ -223,12 +225,20 @@ multiplicativeExpression
     : messageExpression ((MULT | DIV | MOD) messageExpression)*
     ;
 
+messageDeclaration
+    : MESSAGE ID field* END MESSAGE
+    ;
+
 messageExpression
     : primaryExpression
     | primaryExpression ARROW ID LPAREN argumentList? RPAREN // Message passing
     | primaryExpression DOT ID LPAREN argumentList? RPAREN  // Method call
     | primaryExpression DOT ID                      // Property access
     | primaryExpression LBRACK expression RBRACK    // Array access
+    ;
+
+message_type
+    : ID
     ;
 
 primaryExpression

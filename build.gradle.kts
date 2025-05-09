@@ -82,6 +82,35 @@ tasks.register<Exec>("runGemProgram") {
     }
 }
 
+// Add these configurations to build.gradle.kts
+tasks.compileJava {
+    options.compilerArgs.add("--enable-preview")
+    options.release.set(24)
+}
+
+tasks.withType<JavaExec> {
+    jvmArgs("--enable-preview")
+}
+
+tasks.withType<Test> {
+    jvmArgs("--enable-preview")
+}
+
+// Update the compileGem task
+tasks.register<JavaExec>("compileGem") {
+    dependsOn("jar")
+    mainClass.set("GemCompiler")
+    classpath = sourceSets.main.get().runtimeClasspath
+    jvmArgs("--enable-preview")
+
+    // Accept command line arguments
+    if (project.hasProperty("file")) {
+        args = listOf(project.property("file").toString())
+    } else {
+        println("Please provide a Gem file: -Pfile=samples/hello.gem")
+    }
+}
+
 sourceSets {
     main {
         java {

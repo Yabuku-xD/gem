@@ -75,14 +75,16 @@ public class GemCompiler {
             semanticAnalyzer.analyzeTree(tree);
 
             // If stopping at semantic, print symbol tables and exit
-            if (stopAt != null && stopAt.equals("semantic")) {
-                System.out.println(semanticAnalyzer.getSymbolTablesAsString());
-                printErrors(
-                        lexerErrorListener.getErrors(),
-                        parserErrorListener.getErrors(),
-                        semanticAnalyzer.getErrors()
-                );
-                return;
+            if (stopAt == null || !semanticAnalyzer.getErrors().isEmpty()) {
+                // Generate class name from source file name
+                String className = Paths.get(sourceFile).getFileName().toString().replaceAll("\\.gem$", "");
+                String outputFile = className + ".class";
+
+                // Generate bytecode
+                CodeGenerator codeGenerator = new CodeGenerator();
+                codeGenerator.generate(tree, semanticAnalyzer, className, outputFile);
+
+                System.out.println("Code generation successful: " + outputFile);
             }
 
             // Code generation - only proceed if no semantic errors
