@@ -1,0 +1,635 @@
+import org.antlr.v4.runtime.tree.ParseTree;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.lang.classfile.*;
+import java.lang.constant.ClassDesc;
+import java.lang.constant.ConstantDescs;
+import java.lang.constant.MethodTypeDesc;
+import java.util.HashMap;
+import java.util.Map;
+
+public class CodeGenerator {
+    private GemSemanticAnalyzer semanticAnalyzer;
+    private Map<String, Integer> localVars = new HashMap<>();
+    private int nextVarIndex = 1; // 0 is reserved for 'this' in instance methods
+
+    public void generate(ParseTree tree, GemSemanticAnalyzer analyzer, String className, String outputFile) {
+        this.semanticAnalyzer = analyzer;
+
+        // Create class file
+        ClassFile.of().build(
+                ClassFile.ClassFileVersion.RELEASE_24,
+                ClassFile.ACC_PUBLIC,
+                className,
+                classBuilder -> {
+                    // Add default constructor
+                    classBuilder.withMethod(
+                            "<init>",
+                            ConstantDescs.CD_void.descriptorString(),
+                            ClassFile.ACC_PUBLIC,
+                            codeBuilder -> {
+                                codeBuilder.aload(0);
+                                codeBuilder.invokespecial(
+                                        ClassDesc.of("java.lang.Object"),
+                                        "<init>",
+                                        MethodTypeDesc.of(ConstantDescs.CD_void)
+                                );
+                                codeBuilder.return_();
+                            }
+                    );
+
+                    // Add main method
+                    classBuilder.withMethod(
+                            "main",
+                            MethodTypeDesc.of(ConstantDescs.CD_void, ClassDesc.of("java.lang.String[]")).descriptorString(),
+                            ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC,
+                            codeBuilder -> {
+                                // Register args parameter
+                                localVars.put("args", 0);
+
+                                // Process the AST
+                                generateProgram((gemParser.ProgramContext)tree, codeBuilder);
+
+                                // Exit main method
+                                codeBuilder.return_();
+                            }
+                    );
+                }
+        ).writeToFile(java.nio.file.Path.of(outputFile));
+    }
+
+    private void generateProgram(gemParser.ProgramContext ctx, CodeBuilder codeBuilder) {
+        // Skip declarations for now (will be supported in the next assignment)
+
+        // Generate code for statements
+        for (gemParser.StatementContext stmt : ctx.statement()) {
+            generateStatement(stmt, codeBuilder);
+        }
+    }
+
+    private void generateStatement(gemParser.StatementContext ctx, CodeBuilder codeBuilder) {
+        if (ctx.variableDeclaration() != null) {
+            generateVariableDeclaration(ctx.variableDeclaration(), codeBuilder);
+        } else if (ctx.assignment() != null) {
+            generateAssignment(ctx.assignment(), codeBuilder);
+        } else if (ctx.ifStatement() != null) {
+            generateIfStatement(ctx.ifStatement(), codeBuilder);
+        } else if (ctx.forLoop() != null) {
+            generateForLoop(ctx.forLoop(), codeBuilder);
+        } else if (ctx.whileLoop() != null) {
+            generateWhileLoop(ctx.whileLoop(), codeBuilder);
+        } else if (ctx.loop() != null) {
+            generateLoop(ctx.loop(), codeBuilder);
+        } else if (ctx.printStatement() != null) {
+            generatePrintStatement(ctx.printStatement(), codeBuilder);
+        } else if (ctx.readStatement() != null) {
+            generateReadStatement(ctx.readStatement(), codeBuilder);
+        } else if (ctx.expression() != null) {
+            // Evaluate expression and discard result
+            generateExpression(ctx.expression(), codeBuilder);
+            codeBuilder.pop();
+        } else if (ctx.functionCall() != null || ctx.innerFunctionDeclaration() != null ||
+                ctx.returnStatement() != null || ctx.breakStatement() != null) {
+            throw new UnsupportedOperationException("Functions not supported in this version");
+        } else {
+            throw new UnsupportedOperationException("Unsupported statement type");
+        }
+    }
+
+    private void generateVariableDeclaration(gemParser.VariableDeclarationContext ctx, CodeBuilder codeBuilder) {
+        if (ctx.struct_type() != null || ctx.class_type() != null || ctx.message_type() != null) {
+            throw new UnsupportedOperationException("Composite types not supported in this version");
+        }
+
+        String varName = ctx.ID().getText();
+        String typeName = getTypeString(ctx.type());
+
+        // Register the variable
+        int varIndex = nextVarIndex++;
+        localVars.put(varName, varIndex);
+
+        // Initialize with expression if provided
+        if (ctx.expression() != null) {
+            generateExpression(ctx.expression(), codeBuilder);
+            storeVariable(varName, typeName, codeBuilder);
+        } else {
+            // Default initialization
+            switch(typeName) {
+                case "integer", "boolean" -> {
+                    codeBuilder.iconst_0();
+                    codeBuilder.istore(varIndex);
+                }
+                case "number" -> {
+                    codeBuilder.fconst_0();
+                    codeBuilder.fstore(varIndex);
+                }
+                case "string" -> {
+                    codeBuilder.aconst_null();
+                    codeBuilder.astore(varIndex);
+                }
+                default -> throw new UnsupportedOperationException("Unsupported variable type: " + typeName);
+            }
+        }
+    }
+
+    private void generateAssignment(gemParser.AssignmentContext ctx, CodeBuilder codeBuilder) {
+        if (ctx.ID().size() > 1 || ctx.LBRACK() != null) {
+            throw new UnsupportedOperationException("Field and array assignments not supported in this version");
+        }
+
+        String varName = ctx.ID(0).getText();
+        String typeName = semanticAnalyzer.getVariableType(varName);
+
+        generateExpression(ctx.expression(0), codeBuilder);
+        storeVariable(varName, typeName, codeBuilder);
+    }
+
+    private void generateIfStatement(gemParser.IfStatementContext ctx, CodeBuilder codeBuilder) {
+        if (ctx.THEN() != null) {
+            // Single-line if-then form
+            Label endLabel = codeBuilder.newLabel();
+
+            // Generate condition
+            generateExpression(ctx.expression(0), codeBuilder);
+            codeBuilder.ifeq(endLabel);
+
+            // Generate then statement
+            generateStatement(ctx.statement(0), codeBuilder);
+
+            // Handle optional else
+            if (ctx.ELSE() != null) {
+                Label afterElseLabel = codeBuilder.newLabel();
+                codeBuilder.goto_(afterElseLabel);
+                codeBuilder.labelBinding(endLabel);
+                generateStatement(ctx.statement(1), codeBuilder);
+                codeBuilder.labelBinding(afterElseLabel);
+            } else {
+                codeBuilder.labelBinding(endLabel);
+            }
+        } else {
+            // Multi-line if-then-end form with simple approach
+            Label endLabel = codeBuilder.newLabel();
+
+            // Generate condition
+            generateExpression(ctx.expression(0), codeBuilder);
+            Label falseLabel = codeBuilder.newLabel();
+            codeBuilder.ifeq(falseLabel);
+
+            // Generate if body statements
+            int stmtStartIdx = 0;
+            int stmtEndIdx = getStatementIndexBeforeElse(ctx, 0);
+            for (int i = stmtStartIdx; i < stmtEndIdx; i++) {
+                generateStatement(ctx.statement(i), codeBuilder);
+            }
+
+            codeBuilder.goto_(endLabel);
+            codeBuilder.labelBinding(falseLabel);
+
+            // Handle else block if present
+            if (ctx.ELSE() != null) {
+                // For simplicity, we're assuming a single else block only
+                for (int i = stmtEndIdx; i < ctx.statement().size(); i++) {
+                    generateStatement(ctx.statement(i), codeBuilder);
+                }
+            }
+
+            codeBuilder.labelBinding(endLabel);
+        }
+    }
+
+    // Helper method to find statements before else
+    private int getStatementIndexBeforeElse(gemParser.IfStatementContext ctx, int startIndex) {
+        // A simplified implementation - in a real compiler, you'd need more sophisticated AST analysis
+        return ctx.ELSE() != null ? ctx.statement().size() / 2 : ctx.statement().size();
+    }
+
+    private void generateForLoop(gemParser.ForLoopContext ctx, CodeBuilder codeBuilder) {
+        String loopVar = ctx.ID().getText();
+        int varIndex = nextVarIndex++;
+        localVars.put(loopVar, varIndex);
+
+        // Loop control labels
+        Label loopStart = codeBuilder.newLabel();
+        Label loopEnd = codeBuilder.newLabel();
+
+        // Initialize counter
+        generateExpression(ctx.expression(0), codeBuilder);
+        codeBuilder.istore(varIndex);
+
+        // Loop condition
+        codeBuilder.labelBinding(loopStart);
+        codeBuilder.iload(varIndex);
+        generateExpression(ctx.expression(1), codeBuilder);
+        codeBuilder.if_icmpgt(loopEnd);
+
+        // Loop body
+        for (gemParser.StatementContext stmt : ctx.statement()) {
+            generateStatement(stmt, codeBuilder);
+        }
+
+        // Increment counter
+        codeBuilder.iinc(varIndex, 1);
+        codeBuilder.goto_(loopStart);
+
+        // End of loop
+        codeBuilder.labelBinding(loopEnd);
+    }
+
+    private void generateWhileLoop(gemParser.WhileLoopContext ctx, CodeBuilder codeBuilder) {
+        // Loop control labels
+        Label loopStart = codeBuilder.newLabel();
+        Label loopEnd = codeBuilder.newLabel();
+
+        // Loop condition
+        codeBuilder.labelBinding(loopStart);
+        generateExpression(ctx.expression(), codeBuilder);
+        codeBuilder.ifeq(loopEnd);
+
+        // Loop body
+        for (gemParser.StatementContext stmt : ctx.statement()) {
+            generateStatement(stmt, codeBuilder);
+        }
+
+        // Jump back to condition
+        codeBuilder.goto_(loopStart);
+
+        // End of loop
+        codeBuilder.labelBinding(loopEnd);
+    }
+
+    private void generateLoop(gemParser.LoopContext ctx, CodeBuilder codeBuilder) {
+        // Loop control labels
+        Label loopStart = codeBuilder.newLabel();
+        Label loopEnd = codeBuilder.newLabel(); // For future break support
+
+        // Start of loop
+        codeBuilder.labelBinding(loopStart);
+
+        // Loop body
+        for (gemParser.StatementContext stmt : ctx.statement()) {
+            generateStatement(stmt, codeBuilder);
+        }
+
+        // Jump back to start
+        codeBuilder.goto_(loopStart);
+
+        // End of loop (for break statements)
+        codeBuilder.labelBinding(loopEnd);
+    }
+
+    private void generatePrintStatement(gemParser.PrintStatementContext ctx, CodeBuilder codeBuilder) {
+        // Get System.out
+        codeBuilder.getstatic(
+                ClassDesc.of("java.lang.System"),
+                "out",
+                ClassDesc.of("java.io.PrintStream")
+        );
+
+        // Generate the expression
+        String exprType = getExpressionType(ctx.expression());
+        generateExpression(ctx.expression(), codeBuilder);
+
+        // Convert primitive types to String if needed
+        if (!exprType.equals("string")) {
+            switch(exprType) {
+                case "integer" -> codeBuilder.invokestatic(
+                        ClassDesc.of("java.lang.String"),
+                        "valueOf",
+                        MethodTypeDesc.of(ClassDesc.of("java.lang.String"), ConstantDescs.CD_int)
+                );
+                case "number" -> codeBuilder.invokestatic(
+                        ClassDesc.of("java.lang.String"),
+                        "valueOf",
+                        MethodTypeDesc.of(ClassDesc.of("java.lang.String"), ConstantDescs.CD_float)
+                );
+                case "boolean" -> codeBuilder.invokestatic(
+                        ClassDesc.of("java.lang.String"),
+                        "valueOf",
+                        MethodTypeDesc.of(ClassDesc.of("java.lang.String"), ConstantDescs.CD_boolean)
+                );
+                default -> throw new UnsupportedOperationException("Cannot print type: " + exprType);
+            }
+        }
+
+        // Call println
+        codeBuilder.invokevirtual(
+                ClassDesc.of("java.io.PrintStream"),
+                "println",
+                MethodTypeDesc.of(ConstantDescs.CD_void, ClassDesc.of("java.lang.String"))
+        );
+    }
+
+    private void generateReadStatement(gemParser.ReadStatementContext ctx, CodeBuilder codeBuilder) {
+        String funcName = ctx.ID().getText();
+
+        // Create Scanner
+        codeBuilder.new_(ClassDesc.of("java.util.Scanner"));
+        codeBuilder.dup();
+        codeBuilder.getstatic(
+                ClassDesc.of("java.lang.System"),
+                "in",
+                ClassDesc.of("java.io.InputStream")
+        );
+        codeBuilder.invokespecial(
+                ClassDesc.of("java.util.Scanner"),
+                "<init>",
+                MethodTypeDesc.of(ConstantDescs.CD_void, ClassDesc.of("java.io.InputStream"))
+        );
+
+        // Call appropriate method
+        if (funcName.equals("read_line")) {
+            codeBuilder.invokevirtual(
+                    ClassDesc.of("java.util.Scanner"),
+                    "nextLine",
+                    MethodTypeDesc.of(ClassDesc.of("java.lang.String"))
+            );
+        } else if (funcName.equals("read_integer")) {
+            codeBuilder.invokevirtual(
+                    ClassDesc.of("java.util.Scanner"),
+                    "nextInt",
+                    MethodTypeDesc.of(ConstantDescs.CD_int)
+            );
+        } else {
+            throw new UnsupportedOperationException("Unsupported read function: " + funcName);
+        }
+
+        // Result is on stack, caller needs to store it
+    }
+
+    private void generateExpression(gemParser.ExpressionContext ctx, CodeBuilder codeBuilder) {
+        generateLogicalExpression(ctx.logicalExpression(), codeBuilder);
+    }
+
+    private void generateLogicalExpression(gemParser.LogicalExpressionContext ctx, CodeBuilder codeBuilder) {
+        if (ctx.comparisonExpression().size() == 1) {
+            generateComparisonExpression(ctx.comparisonExpression(0), codeBuilder);
+            return;
+        }
+
+        // First operand
+        generateComparisonExpression(ctx.comparisonExpression(0), codeBuilder);
+
+        for (int i = 0; i < ctx.getChildCount() / 2; i++) {
+            String operator = ctx.getChild(i * 2 + 1).getText();
+
+            if (operator.equals("and")) {
+                // Short-circuit AND
+                Label falseLabel = codeBuilder.newLabel();
+                Label endLabel = codeBuilder.newLabel();
+
+                // Check if first operand is false
+                codeBuilder.ifeq(falseLabel);
+
+                // Evaluate second operand
+                generateComparisonExpression(ctx.comparisonExpression(i + 1), codeBuilder);
+                codeBuilder.goto_(endLabel);
+
+                // First operand was false, result is false
+                codeBuilder.labelBinding(falseLabel);
+                codeBuilder.iconst_0();
+
+                codeBuilder.labelBinding(endLabel);
+            } else if (operator.equals("or")) {
+                // Short-circuit OR
+                Label trueLabel = codeBuilder.newLabel();
+                Label endLabel = codeBuilder.newLabel();
+
+                // Check if first operand is true
+                codeBuilder.ifne(trueLabel);
+
+                // Evaluate second operand
+                generateComparisonExpression(ctx.comparisonExpression(i + 1), codeBuilder);
+                codeBuilder.goto_(endLabel);
+
+                // First operand was true, result is true
+                codeBuilder.labelBinding(trueLabel);
+                codeBuilder.iconst_1();
+
+                codeBuilder.labelBinding(endLabel);
+            }
+        }
+    }
+
+    private void generateComparisonExpression(gemParser.ComparisonExpressionContext ctx, CodeBuilder codeBuilder) {
+        if (ctx.additiveExpression().size() == 1) {
+            generateAdditiveExpression(ctx.additiveExpression(0), codeBuilder);
+            return;
+        }
+
+        // Generate operands
+        generateAdditiveExpression(ctx.additiveExpression(0), codeBuilder);
+        generateAdditiveExpression(ctx.additiveExpression(1), codeBuilder);
+
+        // Compare based on operator
+        String op = ctx.getChild(1).getText();
+        Label trueLabel = codeBuilder.newLabel();
+        Label endLabel = codeBuilder.newLabel();
+
+        switch (op) {
+            case "<" -> codeBuilder.if_icmplt(trueLabel);
+            case ">" -> codeBuilder.if_icmpgt(trueLabel);
+            case "<=" -> codeBuilder.if_icmple(trueLabel);
+            case ">=" -> codeBuilder.if_icmpge(trueLabel);
+            case "==" -> codeBuilder.if_icmpeq(trueLabel);
+            case "!=" -> codeBuilder.if_icmpne(trueLabel);
+            default -> throw new UnsupportedOperationException("Unsupported comparison operator: " + op);
+        }
+
+        // False path
+        codeBuilder.iconst_0();
+        codeBuilder.goto_(endLabel);
+
+        // True path
+        codeBuilder.labelBinding(trueLabel);
+        codeBuilder.iconst_1();
+
+        codeBuilder.labelBinding(endLabel);
+    }
+
+    private void generateAdditiveExpression(gemParser.AdditiveExpressionContext ctx, CodeBuilder codeBuilder) {
+        if (ctx.multiplicativeExpression().size() == 1) {
+            generateMultiplicativeExpression(ctx.multiplicativeExpression(0), codeBuilder);
+            return;
+        }
+
+        // First operand
+        generateMultiplicativeExpression(ctx.multiplicativeExpression(0), codeBuilder);
+
+        // Process operations left to right
+        for (int i = 1; i < ctx.multiplicativeExpression().size(); i++) {
+            generateMultiplicativeExpression(ctx.multiplicativeExpression(i), codeBuilder);
+
+            String op = ctx.getChild(i * 2 - 1).getText();
+            if (op.equals("+")) {
+                codeBuilder.iadd();
+            } else if (op.equals("-")) {
+                codeBuilder.isub();
+            }
+        }
+    }
+
+    private void generateMultiplicativeExpression(gemParser.MultiplicativeExpressionContext ctx, CodeBuilder codeBuilder) {
+        if (ctx.messageExpression().size() == 1) {
+            generateMessageExpression(ctx.messageExpression(0), codeBuilder);
+            return;
+        }
+
+        // First operand
+        generateMessageExpression(ctx.messageExpression(0), codeBuilder);
+
+        // Process operations left to right
+        for (int i = 1; i < ctx.messageExpression().size(); i++) {
+            generateMessageExpression(ctx.messageExpression(i), codeBuilder);
+
+            String op = ctx.getChild(i * 2 - 1).getText();
+            switch (op) {
+                case "*" -> codeBuilder.imul();
+                case "/" -> codeBuilder.idiv();
+                case "%" -> codeBuilder.irem();
+                default -> throw new UnsupportedOperationException("Unsupported multiplicative operator: " + op);
+            }
+        }
+    }
+
+    private void generateMessageExpression(gemParser.MessageExpressionContext ctx, CodeBuilder codeBuilder) {
+        if (ctx.ARROW() != null || (ctx.DOT() != null && ctx.LPAREN() != null) || ctx.LBRACK() != null) {
+            throw new UnsupportedOperationException("Message passing, method calls, and arrays not supported in this version");
+        }
+
+        if (ctx.DOT() != null) {
+            throw new UnsupportedOperationException("Field access not supported in this version");
+        }
+
+        generatePrimaryExpression(ctx.primaryExpression(), codeBuilder);
+    }
+
+    private void generatePrimaryExpression(gemParser.PrimaryExpressionContext ctx, CodeBuilder codeBuilder) {
+        if (ctx.ID() != null && ctx.LPAREN() == null) {
+            // Variable reference
+            String varName = ctx.ID().getText();
+            String varType = semanticAnalyzer.getVariableType(varName);
+            loadVariable(varName, varType, codeBuilder);
+        } else if (ctx.literal() != null) {
+            // Literal value
+            generateLiteral(ctx.literal(), codeBuilder);
+        } else if (ctx.expression() != null) {
+            // Parenthesized expression
+            generateExpression(ctx.expression(), codeBuilder);
+        } else if (ctx.ID() != null && ctx.LPAREN() != null) {
+            // Function call
+            throw new UnsupportedOperationException("Function calls not supported in this version");
+        }
+    }
+
+    private void generateLiteral(gemParser.LiteralContext ctx, CodeBuilder codeBuilder) {
+        if (ctx.INTEGER_LITERAL() != null) {
+            int value = Integer.parseInt(ctx.INTEGER_LITERAL().getText());
+            switch (value) {
+                case -1 -> codeBuilder.iconst_m1();
+                case 0 -> codeBuilder.iconst_0();
+                case 1 -> codeBuilder.iconst_1();
+                case 2 -> codeBuilder.iconst_2();
+                case 3 -> codeBuilder.iconst_3();
+                case 4 -> codeBuilder.iconst_4();
+                case 5 -> codeBuilder.iconst_5();
+                default -> {
+                    if (value >= -128 && value <= 127) {
+                        codeBuilder.bipush(value);
+                    } else if (value >= -32768 && value <= 32767) {
+                        codeBuilder.sipush(value);
+                    } else {
+                        codeBuilder.ldc(value);
+                    }
+                }
+            }
+        } else if (ctx.FLOAT_LITERAL() != null) {
+            float value = Float.parseFloat(ctx.FLOAT_LITERAL().getText());
+            if (value == 0.0f) {
+                codeBuilder.fconst_0();
+            } else if (value == 1.0f) {
+                codeBuilder.fconst_1();
+            } else if (value == 2.0f) {
+                codeBuilder.fconst_2();
+            } else {
+                codeBuilder.ldc(value);
+            }
+        } else if (ctx.STRING_LITERAL() != null) {
+            String value = ctx.STRING_LITERAL().getText();
+            // Remove quotes
+            value = value.substring(1, value.length() - 1);
+            codeBuilder.ldc(value);
+        } else if (ctx.BOOLEAN_LITERAL() != null) {
+            String value = ctx.BOOLEAN_LITERAL().getText();
+            if (value.equals("yes")) {
+                codeBuilder.iconst_1();
+            } else {
+                codeBuilder.iconst_0();
+            }
+        } else if (ctx.arrayLiteral() != null) {
+            throw new UnsupportedOperationException("Arrays not supported in this version");
+        }
+    }
+
+    private void loadVariable(String name, String type, CodeBuilder codeBuilder) {
+        if (!localVars.containsKey(name)) {
+            throw new RuntimeException("Variable not found: " + name);
+        }
+
+        int index = localVars.get(name);
+
+        switch (type) {
+            case "integer", "boolean" -> codeBuilder.iload(index);
+            case "number" -> codeBuilder.fload(index);
+            case "string" -> codeBuilder.aload(index);
+            default -> throw new UnsupportedOperationException("Loading not supported for type: " + type);
+        }
+    }
+
+    private void storeVariable(String name, String type, CodeBuilder codeBuilder) {
+        if (!localVars.containsKey(name)) {
+            throw new RuntimeException("Variable not found: " + name);
+        }
+
+        int index = localVars.get(name);
+
+        switch (type) {
+            case "integer", "boolean" -> codeBuilder.istore(index);
+            case "number" -> codeBuilder.fstore(index);
+            case "string" -> codeBuilder.astore(index);
+            default -> throw new UnsupportedOperationException("Storing not supported for type: " + type);
+        }
+    }
+
+    private String getTypeString(gemParser.TypeContext ctx) {
+        if (ctx.INTEGER_TYPE() != null) return "integer";
+        if (ctx.NUMBER_TYPE() != null) return "number";
+        if (ctx.STRING_TYPE() != null) return "string";
+        if (ctx.BOOLEAN_TYPE() != null) return "boolean";
+        if (ctx.CHAR_TYPE() != null) return "char";
+
+        if (ctx.type() != null && ctx.LBRACK() != null) {
+            throw new UnsupportedOperationException("Arrays not supported in this version");
+        }
+
+        if (ctx.ID() != null) {
+            return ctx.ID().getText();
+        }
+
+        return null;
+    }
+
+    private String getExpressionType(gemParser.ExpressionContext ctx) {
+        // This is a simplified version - in a real implementation,
+        // we would need to properly determine the type of each expression
+        // through semantic analysis
+
+        if (ctx.logicalExpression().comparisonExpression().size() > 1 ||
+                ctx.logicalExpression().getChild(1) != null &&
+                        (ctx.logicalExpression().getChild(1).getText().equals("and") ||
+                                ctx.logicalExpression().getChild(1).getText().equals("or"))) {
+            return "boolean";
+        }
+
+        return "integer"; // Default assumption for simplicity
+    }
+}

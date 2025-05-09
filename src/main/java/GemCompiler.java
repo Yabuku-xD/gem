@@ -1,3 +1,4 @@
+import org.antlr.v4.codegen.CodeGenerator;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
 
@@ -8,8 +9,8 @@ import java.util.List;
 
 public class GemCompiler {
     public static void main(String[] args) {
-        if (args.length < 2) {
-            System.out.println("Usage: java GemCompiler <source_file> --stop-at <lexing|parsing|semantic>");
+        if (args.length < 1) {
+            System.out.println("Usage: java GemCompiler <source_file> [--stop-at <lexing|parsing|semantic>]");
             return;
         }
 
@@ -23,8 +24,8 @@ public class GemCompiler {
             }
         }
 
-        if (stopAt == null || (!stopAt.equals("lexing") && !stopAt.equals("parsing") && !stopAt.equals("semantic"))) {
-            System.out.println("Invalid or missing --stop-at argument. Must be one of: lexing, parsing, semantic");
+        if (stopAt != null && (!stopAt.equals("lexing") && !stopAt.equals("parsing") && !stopAt.equals("semantic"))) {
+            System.out.println("Invalid --stop-at argument. Must be one of: lexing, parsing, semantic");
             return;
         }
 
@@ -44,7 +45,7 @@ public class GemCompiler {
             CommonTokenStream tokens = new CommonTokenStream(lexer);
 
             // If stopping at lexing, print tokens and exit
-            if (stopAt.equals("lexing")) {
+            if (stopAt != null && stopAt.equals("lexing")) {
                 tokens.fill();
                 printTokens(tokens.getTokens());
                 printErrors(lexerErrorListener.getErrors(), null, null);
@@ -63,7 +64,7 @@ public class GemCompiler {
             ParseTree tree = parser.program();
 
             // If stopping at parsing, print parse tree and exit
-            if (stopAt.equals("parsing")) {
+            if (stopAt != null && stopAt.equals("parsing")) {
                 printParseTree(tree, 0);
                 printErrors(lexerErrorListener.getErrors(), parserErrorListener.getErrors(), null);
                 return;
@@ -73,16 +74,42 @@ public class GemCompiler {
             GemSemanticAnalyzer semanticAnalyzer = new GemSemanticAnalyzer();
             semanticAnalyzer.analyzeTree(tree);
 
-            // Print symbol tables and errors
-            System.out.println(semanticAnalyzer.getSymbolTablesAsString());
-            printErrors(
-                    lexerErrorListener.getErrors(),
-                    parserErrorListener.getErrors(),
-                    semanticAnalyzer.getErrors()
-            );
+            // If stopping at semantic, print symbol tables and exit
+            if (stopAt != null && stopAt.equals("semantic")) {
+                System.out.println(semanticAnalyzer.getSymbolTablesAsString());
+                printErrors(
+                        lexerErrorListener.getErrors(),
+                        parserErrorListener.getErrors(),
+                        semanticAnalyzer.getErrors()
+                );
+                return;
+            }
+
+            // Code generation - only proceed if no semantic errors
+            if (semanticAnalyzer.getErrors().isEmpty()) {
+                // Generate class file name from source file name
+                String className = Paths.get(sourceFile).getFileName().toString();
+                className = className.replaceAll("\\.gem$", "");
+                String outputFile = className + ".class";
+
+                // Generate code
+                CodeGenerator codeGenerator = new CodeGenerator();
+                codeGenerator.generate(tree, semanticAnalyzer, className, outputFile);
+
+                System.out.println("Code generation successful: " + outputFile);
+            } else {
+                System.out.println("Semantic errors found, cannot generate code:");
+                printErrors(
+                        lexerErrorListener.getErrors(),
+                        parserErrorListener.getErrors(),
+                        semanticAnalyzer.getErrors()
+                );
+            }
 
         } catch (IOException e) {
             System.out.println("Error reading file: " + e.getMessage());
+        } catch (UnsupportedOperationException e) {
+            System.out.println("Feature not yet implemented: " + e.getMessage());
         } catch (Exception e) {
             System.out.println("Error during compilation: " + e.getMessage());
             e.printStackTrace();

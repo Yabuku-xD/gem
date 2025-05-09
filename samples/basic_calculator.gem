@@ -1,0 +1,50 @@
+-- A simple calculator program using supported features
+-- Expected output will vary based on user input
+
+start
+  print "Basic Calculator"
+  print "----------------"
+
+  print "Enter first number:"
+  integer num1 = read_integer()
+
+  print "Enter second number:"
+  integer num2 = read_integer()
+
+  print "Choose operation:"
+  print "1. Addition"
+  print "2. Subtraction"
+  print "3. Multiplication"
+  print "4. Division"
+  print "5. Remainder"
+
+  integer choice = read_integer()
+  integer result = 0
+
+  if choice == 1 then
+    result = num1 + num2
+    print "Result of addition: " + result
+  else if choice == 2 then
+    result = num1 - num2
+    print "Result of subtraction: " + result
+  else if choice == 3 then
+    result = num1 * num2
+    print "Result of multiplication: " + result
+  else if choice == 4 then
+    if num2 == 0 then
+      print "Error: Cannot divide by zero"
+    else
+      result = num1 / num2
+      print "Result of division: " + result
+    end if
+  else if choice == 5 then
+    if num2 == 0 then
+      print "Error: Cannot find remainder with zero"
+    else
+      result = num1 % num2
+      print "Remainder: " + result
+    end if
+  else
+    print "Invalid choice!"
+  end if
+finish

@@ -55,6 +55,33 @@ tasks.register<Jar>("uberJar") {
 
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
+
+tasks.register<JavaExec>("compileGem") {
+    dependsOn("jar")
+    mainClass.set("GemCompiler")
+    classpath = sourceSets.main.get().runtimeClasspath
+
+    // Accept command line arguments
+    if (project.hasProperty("file")) {
+        args = listOf(project.property("file").toString())
+    } else {
+        println("Please provide a Gem file: -Pfile=samples/hello.gem")
+    }
+}
+
+tasks.register<Exec>("runGemProgram") {
+    dependsOn("compileGem")
+
+    if (project.hasProperty("file")) {
+        val gemFile = project.property("file").toString()
+        val className = File(gemFile).nameWithoutExtension
+        executable = "java"
+        args = listOf("-cp", ".", className)
+    } else {
+        println("Please provide a Gem file: -Pfile=samples/hello.gem")
+    }
+}
+
 sourceSets {
     main {
         java {

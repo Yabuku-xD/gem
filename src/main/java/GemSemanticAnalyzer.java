@@ -11,6 +11,7 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
     private Map<String, String> definedVariables = new HashMap<>();
 
     public GemSemanticAnalyzer() {
+        // Initialize with built-in types
         globalScope.define("integer", "type", "integer", 0, 0);
         globalScope.define("number", "type", "number", 0, 0);
         globalScope.define("string", "type", "string", 0, 0);
@@ -19,6 +20,7 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
     }
 
     public String analyzeTree(ParseTree tree) {
+        // First pass: Register all types and function signatures
         if (tree instanceof gemParser.ProgramContext) {
             gemParser.ProgramContext ctx = (gemParser.ProgramContext) tree;
 
@@ -604,5 +606,9 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
         }
 
         return sb.toString();
+    }
+
+    public String getVariableType(String varName) {
+        return definedVariables.get(varName);
     }
 }
