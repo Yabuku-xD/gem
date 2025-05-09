@@ -87,16 +87,6 @@ public interface gemListener extends ParseTreeListener {
 	 */
 	void exitClass_type(gemParser.Class_typeContext ctx);
 	/**
-	 * Enter a parse tree produced by {@link gemParser#message_type}.
-	 * @param ctx the parse tree
-	 */
-	void enterMessage_type(gemParser.Message_typeContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link gemParser#message_type}.
-	 * @param ctx the parse tree
-	 */
-	void exitMessage_type(gemParser.Message_typeContext ctx);
-	/**
 	 * Enter a parse tree produced by {@link gemParser#assignment}.
 	 * @param ctx the parse tree
 	 */
@@ -186,16 +176,6 @@ public interface gemListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitClassDeclaration(gemParser.ClassDeclarationContext ctx);
-	/**
-	 * Enter a parse tree produced by {@link gemParser#messageDeclaration}.
-	 * @param ctx the parse tree
-	 */
-	void enterMessageDeclaration(gemParser.MessageDeclarationContext ctx);
-	/**
-	 * Exit a parse tree produced by {@link gemParser#messageDeclaration}.
-	 * @param ctx the parse tree
-	 */
-	void exitMessageDeclaration(gemParser.MessageDeclarationContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link gemParser#parameterList}.
 	 * @param ctx the parse tree
@@ -346,6 +326,16 @@ public interface gemListener extends ParseTreeListener {
 	 * @param ctx the parse tree
 	 */
 	void exitMessageExpression(gemParser.MessageExpressionContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link gemParser#message_type}.
+	 * @param ctx the parse tree
+	 */
+	void enterMessage_type(gemParser.Message_typeContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link gemParser#message_type}.
+	 * @param ctx the parse tree
+	 */
+	void exitMessage_type(gemParser.Message_typeContext ctx);
 	/**
 	 * Enter a parse tree produced by {@link gemParser#primaryExpression}.
 	 * @param ctx the parse tree

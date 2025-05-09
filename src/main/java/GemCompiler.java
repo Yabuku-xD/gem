@@ -1,4 +1,3 @@
-import org.antlr.v4.codegen.CodeGenerator;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
 
@@ -75,37 +74,43 @@ public class GemCompiler {
             semanticAnalyzer.analyzeTree(tree);
 
             // If stopping at semantic, print symbol tables and exit
-            if (stopAt == null || !semanticAnalyzer.getErrors().isEmpty()) {
-                // Generate class name from source file name
-                String className = Paths.get(sourceFile).getFileName().toString().replaceAll("\\.gem$", "");
-                String outputFile = className + ".class";
-
-                // Generate bytecode
-                CodeGenerator codeGenerator = new CodeGenerator();
-                codeGenerator.generate(tree, semanticAnalyzer, className, outputFile);
-
-                System.out.println("Code generation successful: " + outputFile);
+            if (stopAt != null && stopAt.equals("semantic")) {
+                System.out.println(semanticAnalyzer.getSymbolTablesAsString());
+                printErrors(
+                        lexerErrorListener.getErrors(),
+                        parserErrorListener.getErrors(),
+                        semanticAnalyzer.getErrors()
+                );
+                return;
             }
 
-            // Code generation - only proceed if no semantic errors
-            if (semanticAnalyzer.getErrors().isEmpty()) {
-                // Generate class file name from source file name
-                String className = Paths.get(sourceFile).getFileName().toString();
-                className = className.replaceAll("\\.gem$", "");
-                String outputFile = className + ".class";
-
-                // Generate code
-                CodeGenerator codeGenerator = new CodeGenerator();
-                codeGenerator.generate(tree, semanticAnalyzer, className, outputFile);
-
-                System.out.println("Code generation successful: " + outputFile);
-            } else {
+            // If we got here, we are not stopping at semantic analysis
+            // Check for semantic errors before proceeding to code generation
+            if (!semanticAnalyzer.getErrors().isEmpty()) {
                 System.out.println("Semantic errors found, cannot generate code:");
                 printErrors(
                         lexerErrorListener.getErrors(),
                         parserErrorListener.getErrors(),
                         semanticAnalyzer.getErrors()
                 );
+                return;
+            }
+
+            // No semantic errors, proceed to code generation
+            String className = Paths.get(sourceFile).getFileName().toString();
+            className = className.replaceAll("\\.gem$", "");
+            String outputFile = className + ".class";
+
+            // Generate code
+            try {
+                CodeGenerator codeGenerator = new CodeGenerator();
+                codeGenerator.generate(tree, semanticAnalyzer, className, outputFile);
+                System.out.println("Code generation successful: " + outputFile);
+            } catch (UnsupportedOperationException e) {
+                System.out.println("Feature not yet implemented: " + e.getMessage());
+            } catch (Exception e) {
+                System.out.println("Error during code generation: " + e.getMessage());
+                e.printStackTrace();
             }
 
         } catch (IOException e) {

@@ -58,12 +58,6 @@ public interface gemVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitClass_type(gemParser.Class_typeContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link gemParser#message_type}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitMessage_type(gemParser.Message_typeContext ctx);
-	/**
 	 * Visit a parse tree produced by {@link gemParser#assignment}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
@@ -117,12 +111,6 @@ public interface gemVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitClassDeclaration(gemParser.ClassDeclarationContext ctx);
-	/**
-	 * Visit a parse tree produced by {@link gemParser#messageDeclaration}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitMessageDeclaration(gemParser.MessageDeclarationContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link gemParser#parameterList}.
 	 * @param ctx the parse tree
@@ -213,6 +201,12 @@ public interface gemVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitMessageExpression(gemParser.MessageExpressionContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link gemParser#message_type}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitMessage_type(gemParser.Message_typeContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link gemParser#primaryExpression}.
 	 * @param ctx the parse tree

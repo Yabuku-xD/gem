@@ -79,7 +79,6 @@ program
 declaration
     : structDeclaration
     | classDeclaration
-    | messageDeclaration
     | functionDeclaration
     ;
 
@@ -107,7 +106,6 @@ variableDeclaration
     : type ID (ASSIGN expression)?
     | struct_type ID
     | class_type ID
-    | message_type ID
     ;
 
 type
@@ -223,10 +221,6 @@ additiveExpression
 
 multiplicativeExpression
     : messageExpression ((MULT | DIV | MOD) messageExpression)*
-    ;
-
-messageDeclaration
-    : MESSAGE ID field* END MESSAGE
     ;
 
 messageExpression

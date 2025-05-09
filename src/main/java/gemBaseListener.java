@@ -112,18 +112,6 @@ public class gemBaseListener implements gemListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterMessage_type(gemParser.Message_typeContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitMessage_type(gemParser.Message_typeContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
 	@Override public void enterAssignment(gemParser.AssignmentContext ctx) { }
 	/**
 	 * {@inheritDoc}
@@ -227,18 +215,6 @@ public class gemBaseListener implements gemListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitClassDeclaration(gemParser.ClassDeclarationContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterMessageDeclaration(gemParser.MessageDeclarationContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitMessageDeclaration(gemParser.MessageDeclarationContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -419,6 +395,18 @@ public class gemBaseListener implements gemListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitMessageExpression(gemParser.MessageExpressionContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterMessage_type(gemParser.Message_typeContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitMessage_type(gemParser.Message_typeContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
