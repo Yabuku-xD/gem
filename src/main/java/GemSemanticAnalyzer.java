@@ -47,8 +47,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             registerStruct(ctx.structDeclaration());
         } else if (ctx.classDeclaration() != null) {
             registerClass(ctx.classDeclaration());
-        } else if (ctx.messageDeclaration() != null) {
-            registerMessage(ctx.messageDeclaration());
         } else if (ctx.functionDeclaration() != null) {
             registerFunction(ctx.functionDeclaration());
         }
@@ -90,15 +88,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
                         "Undefined class type: " + typeName,
                         ctx.class_type().ID().getSymbol().getLine(),
                         ctx.class_type().ID().getSymbol().getCharPositionInLine()));
-                return null;
-            }
-        } else if (ctx.message_type() != null) {
-            typeName = ctx.message_type().ID().getText();
-            if (!isTypeValid(typeName)) {
-                errors.add(new UnresolvedTypeError(
-                        "Undefined message type: " + typeName,
-                        ctx.message_type().ID().getSymbol().getLine(),
-                        ctx.message_type().ID().getSymbol().getCharPositionInLine()));
                 return null;
             }
         }
@@ -422,45 +411,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
                             paramType, paramLine, paramColumn);
                 }
             }
-        }
-    }
-
-    private void registerMessage(gemParser.MessageDeclarationContext ctx) {
-        String name = ctx.ID().getText();
-        int line = ctx.ID().getSymbol().getLine();
-        int column = ctx.ID().getSymbol().getCharPositionInLine();
-
-        // Check for duplicate type definition
-        if (globalScope.getLocal(name) != null) {
-            errors.add(new DuplicateTypeError(
-                    "Duplicate type definition: " + name, line, column));
-            return;
-        }
-
-        // Register the message
-        globalScope.define(name, "message", name, line, column);
-
-        // Create symbol table for message
-        SymbolTable messageTable = new SymbolTable(globalScope);
-        typeTables.put(name, messageTable);
-
-        // Register fields
-        for (gemParser.FieldContext field : ctx.field()) {
-            String fieldType = getTypeText(field.type());
-            String fieldName = field.ID().getText();
-            int fieldLine = field.ID().getSymbol().getLine();
-            int fieldColumn = field.ID().getSymbol().getCharPositionInLine();
-
-            // Check field type
-            if (!isTypeValid(fieldType)) {
-                errors.add(new UnresolvedTypeError(
-                        "Undefined type: " + fieldType + " for field " + fieldName,
-                        field.type().getStart().getLine(),
-                        field.type().getStart().getCharPositionInLine()));
-            }
-
-            // Register field
-            messageTable.define(fieldName, "field", fieldType, fieldLine, fieldColumn);
         }
     }
 

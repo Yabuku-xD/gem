@@ -83,6 +83,12 @@ tasks.register<Exec>("runGemProgram") {
     }
 }
 
+tasks.compileJava {
+    dependsOn(tasks.generateGrammarSource)
+    options.compilerArgs.add("--enable-preview")
+    options.release.set(24)
+}
+
 tasks.withType<JavaExec> {
     jvmArgs("--enable-preview")
 }

@@ -25,7 +25,7 @@ public class CodeGenerator {
             // Create class file
             java.nio.file.Path outputPath = java.nio.file.Path.of(outputFile);
             ClassFile.of().build(
-                    ClassFile.ClassVersion.JAVA_24, // Fix the class version constant
+                    ClassFile.ClassVersion.of(68, 0), // Java 24 class version
                     ClassFile.ACC_PUBLIC,
                     className,
                     classBuilder -> {
@@ -110,7 +110,7 @@ public class CodeGenerator {
     }
 
     private void generateVariableDeclaration(gemParser.VariableDeclarationContext ctx, CodeBuilder codeBuilder) {
-        if (ctx.struct_type() != null || ctx.class_type() != null || ctx.message_type() != null) {
+        if (ctx.struct_type() != null || ctx.class_type() != null) {
             throw new UnsupportedOperationException("Composite types not supported in this version");
         }
 
