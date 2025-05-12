@@ -5,7 +5,7 @@ start
   string continue_calc = "yes"
 
   while continue_calc == "yes"
-    print "Enhanced Calculator"
+    print "The only calculator you need!"
     print "------------------"
 
     print "Enter first number:"
@@ -138,7 +138,7 @@ start
         continue_calc = "yes"
       else
         continue_calc = "no"
-        print "Thank you for using the enhanced calculator!"
+        print "Thank you for using the calculator!"
       end if
     end if
   end while

@@ -124,7 +124,9 @@ public class CodeGenerator {
         } else if (ctx.functionCall() != null) {
             // Special handling for console I/O functions
             String functionName = ctx.functionCall().ID(0).getText();
-            if (functionName.equals("read_integer") || functionName.equals("read_line")) {
+            if (functionName.equals("read_integer")) {
+                generateIntegerInputWithErrorHandling(mv);
+            } else if (functionName.equals("read_line")) {
                 // Create a read statement context or directly implement the read logic here
 
                 // Create a Scanner
@@ -537,25 +539,25 @@ public class CodeGenerator {
     private void generateReadStatement(gemParser.ReadStatementContext ctx, MethodVisitor mv) {
         String funcName = ctx.ID().getText();
 
-        // Create Scanner
-        mv.visitTypeInsn(Opcodes.NEW, "java/util/Scanner");
-        mv.visitInsn(Opcodes.DUP);
-        mv.visitFieldInsn(
-                Opcodes.GETSTATIC,
-                "java/lang/System",
-                "in",
-                "Ljava/io/InputStream;"
-        );
-        mv.visitMethodInsn(
-                Opcodes.INVOKESPECIAL,
-                "java/util/Scanner",
-                "<init>",
-                "(Ljava/io/InputStream;)V",
-                false
-        );
-
-        // Call appropriate method
-        if (funcName.equals("read_line")) {
+        if (funcName.equals("read_integer")) {
+            generateIntegerInputWithErrorHandling(mv);
+        } else if (funcName.equals("read_line")) {
+            // Original code for read_line
+            mv.visitTypeInsn(Opcodes.NEW, "java/util/Scanner");
+            mv.visitInsn(Opcodes.DUP);
+            mv.visitFieldInsn(
+                    Opcodes.GETSTATIC,
+                    "java/lang/System",
+                    "in",
+                    "Ljava/io/InputStream;"
+            );
+            mv.visitMethodInsn(
+                    Opcodes.INVOKESPECIAL,
+                    "java/util/Scanner",
+                    "<init>",
+                    "(Ljava/io/InputStream;)V",
+                    false
+            );
             mv.visitMethodInsn(
                     Opcodes.INVOKEVIRTUAL,
                     "java/util/Scanner",
@@ -563,19 +565,9 @@ public class CodeGenerator {
                     "()Ljava/lang/String;",
                     false
             );
-        } else if (funcName.equals("read_integer")) {
-            mv.visitMethodInsn(
-                    Opcodes.INVOKEVIRTUAL,
-                    "java/util/Scanner",
-                    "nextInt",
-                    "()I",
-                    false
-            );
         } else {
             throw new UnsupportedOperationException("Unsupported read function: " + funcName);
         }
-
-        // Result is on stack, caller needs to store it
     }
 
     private void generateExpression(gemParser.ExpressionContext ctx, MethodVisitor mv) {
@@ -753,7 +745,9 @@ public class CodeGenerator {
         } else if (ctx.ID() != null && ctx.LPAREN() != null) {
             // Function call
             String functionName = ctx.ID().getText();
-            if (functionName.equals("read_integer") || functionName.equals("read_line")) {
+            if (functionName.equals("read_integer")) {
+                generateIntegerInputWithErrorHandling(mv);
+            } else if (functionName.equals("read_line")) {
                 // Handle built-in I/O functions
                 // Create a Scanner
                 mv.visitTypeInsn(Opcodes.NEW, "java/util/Scanner");
@@ -991,5 +985,98 @@ public class CodeGenerator {
         if (ctx.CHAR_LITERAL() != null) return "char";
         if (ctx.BOOLEAN_LITERAL() != null) return "boolean";
         return "unknown";
+    }
+
+    private void generateIntegerInputWithErrorHandling(MethodVisitor mv) {
+        // Create labels for the try-catch block and loop
+        Label loopStart = new Label();
+        Label loopEnd = new Label();
+        Label tryStart = new Label();
+        Label tryEnd = new Label();
+        Label catchHandler = new Label();
+
+        // Create a Scanner object
+        mv.visitTypeInsn(Opcodes.NEW, "java/util/Scanner");
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitFieldInsn(
+                Opcodes.GETSTATIC,
+                "java/lang/System",
+                "in",
+                "Ljava/io/InputStream;"
+        );
+        mv.visitMethodInsn(
+                Opcodes.INVOKESPECIAL,
+                "java/util/Scanner",
+                "<init>",
+                "(Ljava/io/InputStream;)V",
+                false
+        );
+
+        // Store the scanner in a local variable
+        int scannerVarIndex = nextVarIndex++;
+        mv.visitVarInsn(Opcodes.ASTORE, scannerVarIndex);
+
+        // Begin the loop
+        mv.visitLabel(loopStart);
+
+        // Try block
+        mv.visitTryCatchBlock(tryStart, tryEnd, catchHandler, "java/util/InputMismatchException");
+
+        mv.visitLabel(tryStart);
+        // Load the scanner object
+        mv.visitVarInsn(Opcodes.ALOAD, scannerVarIndex);
+
+        // Call nextInt()
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                "java/util/Scanner",
+                "nextInt",
+                "()I",
+                false
+        );
+
+        // If we get here, the input was valid, so break out of the loop
+        mv.visitJumpInsn(Opcodes.GOTO, loopEnd);
+        mv.visitLabel(tryEnd);
+
+        // Catch block for InputMismatchException
+        mv.visitLabel(catchHandler);
+
+        // Store the exception in a local variable (to prevent stack issues)
+        int exceptionVarIndex = nextVarIndex++;
+        mv.visitVarInsn(Opcodes.ASTORE, exceptionVarIndex);
+
+        // Print error message
+        mv.visitFieldInsn(
+                Opcodes.GETSTATIC,
+                "java/lang/System",
+                "out",
+                "Ljava/io/PrintStream;"
+        );
+        mv.visitLdcInsn("Invalid input. Please enter a valid integer.");
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                "java/io/PrintStream",
+                "println",
+                "(Ljava/lang/String;)V",
+                false
+        );
+
+        // Clear the scanner buffer
+        mv.visitVarInsn(Opcodes.ALOAD, scannerVarIndex);
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                "java/util/Scanner",
+                "next",
+                "()Ljava/lang/String;",
+                false
+        );
+        mv.visitInsn(Opcodes.POP); // Discard the result
+
+        // Jump back to start of the loop
+        mv.visitJumpInsn(Opcodes.GOTO, loopStart);
+
+        // End of the loop
+        mv.visitLabel(loopEnd);
     }
 }
