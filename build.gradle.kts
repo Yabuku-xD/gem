@@ -14,6 +14,7 @@ repositories {
 dependencies {
     antlr("org.antlr:antlr4:4.13.2")
     implementation("org.antlr:antlr4-runtime:4.13.2")
+    implementation("org.ow2.asm:asm:9.6")
 }
 
 application {
@@ -28,8 +29,7 @@ tasks.generateGrammarSource {
 
 tasks.compileJava {
     dependsOn(tasks.generateGrammarSource)
-    options.compilerArgs.add("--enable-preview")
-    options.release.set(24)
+    options.release.set(21)
 }
 
 // Disable test tasks since they're causing problems
@@ -61,7 +61,6 @@ tasks.register<JavaExec>("compileGemFile") {
     dependsOn("jar")
     mainClass.set("GemCompiler")
     classpath = sourceSets.main.get().runtimeClasspath
-    jvmArgs("--enable-preview")
 
     if (project.hasProperty("file")) {
         args = listOf(project.property("file").toString())
@@ -77,7 +76,6 @@ tasks.register<Exec>("runGemProgram") {
         val gemFile = project.property("file").toString()
         val className = File(gemFile).nameWithoutExtension
         executable = "java"
-        args = listOf("-cp", ".", className)
     } else {
         println("Please provide a Gem file: -Pfile=samples/hello.gem")
     }
@@ -86,7 +84,7 @@ tasks.register<Exec>("runGemProgram") {
 tasks.compileJava {
     dependsOn(tasks.generateGrammarSource)
     options.compilerArgs.add("--enable-preview")
-    options.release.set(24)
+    options.release.set(21)
 }
 
 tasks.withType<JavaExec> {

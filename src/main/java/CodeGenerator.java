@@ -1,9 +1,7 @@
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.objectweb.asm.*;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.lang.classfile.*;
-import java.lang.constant.ClassDesc;
-import java.lang.constant.ConstantDescs;
-import java.lang.constant.MethodTypeDesc;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -13,7 +11,7 @@ public class CodeGenerator {
     private int nextVarIndex = 1; // 0 is reserved for 'this' in instance methods
     private Label currentBreakLabel = null;
 
-    // Fix the constructor to match the way it's called in GemCompiler.java
+    // Constructor
     public CodeGenerator() {
         // No parameters needed
     }
@@ -22,47 +20,67 @@ public class CodeGenerator {
         this.semanticAnalyzer = analyzer;
 
         try {
-            // Create class file
-            java.nio.file.Path outputPath = java.nio.file.Path.of(outputFile);
-            ClassFile.of().build(
-                    ClassFile.ClassVersion.of(68, 0), // Java 24 class version
-                    ClassFile.ACC_PUBLIC,
+            // Create class writer
+            ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
+
+            // Create the class
+            cw.visit(
+                    Opcodes.V20, // Java 20 class version
+                    Opcodes.ACC_PUBLIC,
                     className,
-                    classBuilder -> {
-                        // Add default constructor
-                        classBuilder.withMethod(
-                                "<init>",
-                                ConstantDescs.CD_void.descriptorString(),
-                                ClassFile.ACC_PUBLIC,
-                                codeBuilder -> {
-                                    codeBuilder.aload(0);
-                                    codeBuilder.invokespecial(
-                                            ClassDesc.of("java.lang.Object"),
-                                            "<init>",
-                                            MethodTypeDesc.of(ConstantDescs.CD_void)
-                                    );
-                                    codeBuilder.return_();
-                                }
-                        );
+                    null, // signature
+                    "java/lang/Object", // superclass
+                    null // interfaces
+            );
 
-                        // Add main method
-                        classBuilder.withMethod(
-                                "main",
-                                MethodTypeDesc.of(ConstantDescs.CD_void, ClassDesc.of("java.lang.String[]")).descriptorString(),
-                                ClassFile.ACC_PUBLIC | ClassFile.ACC_STATIC,
-                                codeBuilder -> {
-                                    // Register args parameter
-                                    localVars.put("args", 0);
+            // Add default constructor
+            MethodVisitor constructor = cw.visitMethod(
+                    Opcodes.ACC_PUBLIC,
+                    "<init>",
+                    "()V",
+                    null,
+                    null
+            );
+            constructor.visitCode();
+            constructor.visitVarInsn(Opcodes.ALOAD, 0);
+            constructor.visitMethodInsn(
+                    Opcodes.INVOKESPECIAL,
+                    "java/lang/Object",
+                    "<init>",
+                    "()V",
+                    false
+            );
+            constructor.visitInsn(Opcodes.RETURN);
+            constructor.visitMaxs(1, 1);
+            constructor.visitEnd();
 
-                                    // Process the AST
-                                    generateProgram((gemParser.ProgramContext)tree, codeBuilder);
+            // Add main method
+            MethodVisitor mv = cw.visitMethod(
+                    Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
+                    "main",
+                    "([Ljava/lang/String;)V",
+                    null,
+                    null
+            );
+            mv.visitCode();
 
-                                    // Exit main method
-                                    codeBuilder.return_();
-                                }
-                        );
-                    }
-            ).writeTo(outputPath);
+            // Register args parameter
+            localVars.put("args", 0);
+
+            // Process the AST - generate main method code
+            generateProgram((gemParser.ProgramContext)tree, mv);
+
+            // Exit main method
+            mv.visitInsn(Opcodes.RETURN);
+            mv.visitMaxs(0, 0); // Will be auto-computed
+            mv.visitEnd();
+
+            cw.visitEnd();
+
+            // Write the class file
+            try (FileOutputStream fos = new FileOutputStream(outputFile)) {
+                fos.write(cw.toByteArray());
+            }
 
             System.out.println("Successfully generated bytecode: " + outputFile);
         } catch (IOException e) {
@@ -71,36 +89,36 @@ public class CodeGenerator {
         }
     }
 
-    private void generateProgram(gemParser.ProgramContext ctx, CodeBuilder codeBuilder) {
+    private void generateProgram(gemParser.ProgramContext ctx, MethodVisitor mv) {
         // Skip declarations for now (will be supported in the next assignment)
 
         // Generate code for statements
         for (gemParser.StatementContext stmt : ctx.statement()) {
-            generateStatement(stmt, codeBuilder);
+            generateStatement(stmt, mv);
         }
     }
 
-    private void generateStatement(gemParser.StatementContext ctx, CodeBuilder codeBuilder) {
+    private void generateStatement(gemParser.StatementContext ctx, MethodVisitor mv) {
         if (ctx.variableDeclaration() != null) {
-            generateVariableDeclaration(ctx.variableDeclaration(), codeBuilder);
+            generateVariableDeclaration(ctx.variableDeclaration(), mv);
         } else if (ctx.assignment() != null) {
-            generateAssignment(ctx.assignment(), codeBuilder);
+            generateAssignment(ctx.assignment(), mv);
         } else if (ctx.ifStatement() != null) {
-            generateIfStatement(ctx.ifStatement(), codeBuilder);
+            generateIfStatement(ctx.ifStatement(), mv);
         } else if (ctx.forLoop() != null) {
-            generateForLoop(ctx.forLoop(), codeBuilder);
+            generateForLoop(ctx.forLoop(), mv);
         } else if (ctx.whileLoop() != null) {
-            generateWhileLoop(ctx.whileLoop(), codeBuilder);
+            generateWhileLoop(ctx.whileLoop(), mv);
         } else if (ctx.loop() != null) {
-            generateLoop(ctx.loop(), codeBuilder);
+            generateLoop(ctx.loop(), mv);
         } else if (ctx.printStatement() != null) {
-            generatePrintStatement(ctx.printStatement(), codeBuilder);
+            generatePrintStatement(ctx.printStatement(), mv);
         } else if (ctx.readStatement() != null) {
-            generateReadStatement(ctx.readStatement(), codeBuilder);
+            generateReadStatement(ctx.readStatement(), mv);
         } else if (ctx.expression() != null) {
             // Evaluate expression and discard result
-            generateExpression(ctx.expression(), codeBuilder);
-            codeBuilder.pop();
+            generateExpression(ctx.expression(), mv);
+            mv.visitInsn(Opcodes.POP); // Pop the value from the stack
         } else if (ctx.functionCall() != null || ctx.innerFunctionDeclaration() != null ||
                 ctx.returnStatement() != null || ctx.breakStatement() != null) {
             throw new UnsupportedOperationException("Functions not supported in this version");
@@ -109,7 +127,7 @@ public class CodeGenerator {
         }
     }
 
-    private void generateVariableDeclaration(gemParser.VariableDeclarationContext ctx, CodeBuilder codeBuilder) {
+    private void generateVariableDeclaration(gemParser.VariableDeclarationContext ctx, MethodVisitor mv) {
         if (ctx.struct_type() != null || ctx.class_type() != null) {
             throw new UnsupportedOperationException("Composite types not supported in this version");
         }
@@ -123,29 +141,29 @@ public class CodeGenerator {
 
         // Initialize with expression if provided
         if (ctx.expression() != null) {
-            generateExpression(ctx.expression(), codeBuilder);
-            storeVariable(varName, typeName, codeBuilder);
+            generateExpression(ctx.expression(), mv);
+            storeVariable(varName, typeName, mv);
         } else {
             // Default initialization
             switch(typeName) {
                 case "integer", "boolean" -> {
-                    codeBuilder.iconst_0();
-                    codeBuilder.istore(varIndex);
+                    mv.visitInsn(Opcodes.ICONST_0);
+                    mv.visitVarInsn(Opcodes.ISTORE, varIndex);
                 }
                 case "number" -> {
-                    codeBuilder.fconst_0();
-                    codeBuilder.fstore(varIndex);
+                    mv.visitInsn(Opcodes.FCONST_0);
+                    mv.visitVarInsn(Opcodes.FSTORE, varIndex);
                 }
                 case "string" -> {
-                    codeBuilder.aconst_null();
-                    codeBuilder.astore(varIndex);
+                    mv.visitInsn(Opcodes.ACONST_NULL);
+                    mv.visitVarInsn(Opcodes.ASTORE, varIndex);
                 }
                 default -> throw new UnsupportedOperationException("Unsupported variable type: " + typeName);
             }
         }
     }
 
-    private void generateAssignment(gemParser.AssignmentContext ctx, CodeBuilder codeBuilder) {
+    private void generateAssignment(gemParser.AssignmentContext ctx, MethodVisitor mv) {
         if (ctx.ID().size() > 1 || ctx.LBRACK() != null) {
             throw new UnsupportedOperationException("Field and array assignments not supported in this version");
         }
@@ -153,60 +171,60 @@ public class CodeGenerator {
         String varName = ctx.ID(0).getText();
         String typeName = semanticAnalyzer.getVariableType(varName);
 
-        generateExpression(ctx.expression(0), codeBuilder);
-        storeVariable(varName, typeName, codeBuilder);
+        generateExpression(ctx.expression(0), mv);
+        storeVariable(varName, typeName, mv);
     }
 
-    private void generateIfStatement(gemParser.IfStatementContext ctx, CodeBuilder codeBuilder) {
+    private void generateIfStatement(gemParser.IfStatementContext ctx, MethodVisitor mv) {
         if (ctx.THEN() != null) {
             // Single-line if-then form
-            Label endLabel = codeBuilder.newLabel();
+            Label endLabel = new Label();
 
             // Generate condition
-            generateExpression(ctx.expression(0), codeBuilder);
-            codeBuilder.ifeq(endLabel);
+            generateExpression(ctx.expression(0), mv);
+            mv.visitJumpInsn(Opcodes.IFEQ, endLabel);
 
             // Generate then statement
-            generateStatement(ctx.statement(0), codeBuilder);
+            generateStatement(ctx.statement(0), mv);
 
             // Handle optional else
             if (ctx.ELSE() != null) {
-                Label afterElseLabel = codeBuilder.newLabel();
-                codeBuilder.goto_(afterElseLabel);
-                codeBuilder.labelBinding(endLabel);
-                generateStatement(ctx.statement(1), codeBuilder);
-                codeBuilder.labelBinding(afterElseLabel);
+                Label afterElseLabel = new Label();
+                mv.visitJumpInsn(Opcodes.GOTO, afterElseLabel);
+                mv.visitLabel(endLabel);
+                generateStatement(ctx.statement(1), mv);
+                mv.visitLabel(afterElseLabel);
             } else {
-                codeBuilder.labelBinding(endLabel);
+                mv.visitLabel(endLabel);
             }
         } else {
             // Multi-line if-then-end form with simple approach
-            Label endLabel = codeBuilder.newLabel();
+            Label endLabel = new Label();
 
             // Generate condition
-            generateExpression(ctx.expression(0), codeBuilder);
-            Label falseLabel = codeBuilder.newLabel();
-            codeBuilder.ifeq(falseLabel);
+            generateExpression(ctx.expression(0), mv);
+            Label falseLabel = new Label();
+            mv.visitJumpInsn(Opcodes.IFEQ, falseLabel);
 
             // Generate if body statements
             int stmtStartIdx = 0;
             int stmtEndIdx = getStatementIndexBeforeElse(ctx, 0);
             for (int i = stmtStartIdx; i < stmtEndIdx; i++) {
-                generateStatement(ctx.statement(i), codeBuilder);
+                generateStatement(ctx.statement(i), mv);
             }
 
-            codeBuilder.goto_(endLabel);
-            codeBuilder.labelBinding(falseLabel);
+            mv.visitJumpInsn(Opcodes.GOTO, endLabel);
+            mv.visitLabel(falseLabel);
 
             // Handle else block if present
             if (ctx.ELSE() != null) {
                 // For simplicity, we're assuming a single else block only
                 for (int i = stmtEndIdx; i < ctx.statement().size(); i++) {
-                    generateStatement(ctx.statement(i), codeBuilder);
+                    generateStatement(ctx.statement(i), mv);
                 }
             }
 
-            codeBuilder.labelBinding(endLabel);
+            mv.visitLabel(endLabel);
         }
     }
 
@@ -216,151 +234,167 @@ public class CodeGenerator {
         return ctx.ELSE() != null ? ctx.statement().size() / 2 : ctx.statement().size();
     }
 
-    private void generateForLoop(gemParser.ForLoopContext ctx, CodeBuilder codeBuilder) {
+    private void generateForLoop(gemParser.ForLoopContext ctx, MethodVisitor mv) {
         String loopVar = ctx.ID().getText();
         int varIndex = nextVarIndex++;
         localVars.put(loopVar, varIndex);
 
         // Loop control labels
-        Label loopStart = codeBuilder.newLabel();
-        Label loopEnd = codeBuilder.newLabel();
+        Label loopStart = new Label();
+        Label loopEnd = new Label();
 
         // Initialize counter
-        generateExpression(ctx.expression(0), codeBuilder);
-        codeBuilder.istore(varIndex);
+        generateExpression(ctx.expression(0), mv);
+        mv.visitVarInsn(Opcodes.ISTORE, varIndex);
 
         // Loop condition
-        codeBuilder.labelBinding(loopStart);
-        codeBuilder.iload(varIndex);
-        generateExpression(ctx.expression(1), codeBuilder);
-        codeBuilder.if_icmpgt(loopEnd);
+        mv.visitLabel(loopStart);
+        mv.visitVarInsn(Opcodes.ILOAD, varIndex);
+        generateExpression(ctx.expression(1), mv);
+        mv.visitJumpInsn(Opcodes.IF_ICMPGT, loopEnd);
 
         // Loop body
         for (gemParser.StatementContext stmt : ctx.statement()) {
-            generateStatement(stmt, codeBuilder);
+            generateStatement(stmt, mv);
         }
 
         // Increment counter
-        codeBuilder.iinc(varIndex, 1);
-        codeBuilder.goto_(loopStart);
+        mv.visitIincInsn(varIndex, 1);
+        mv.visitJumpInsn(Opcodes.GOTO, loopStart);
 
         // End of loop
-        codeBuilder.labelBinding(loopEnd);
+        mv.visitLabel(loopEnd);
     }
 
-    private void generateWhileLoop(gemParser.WhileLoopContext ctx, CodeBuilder codeBuilder) {
+    private void generateWhileLoop(gemParser.WhileLoopContext ctx, MethodVisitor mv) {
         // Loop control labels
-        Label loopStart = codeBuilder.newLabel();
-        Label loopEnd = codeBuilder.newLabel();
+        Label loopStart = new Label();
+        Label loopEnd = new Label();
 
         // Loop condition
-        codeBuilder.labelBinding(loopStart);
-        generateExpression(ctx.expression(), codeBuilder);
-        codeBuilder.ifeq(loopEnd);
+        mv.visitLabel(loopStart);
+        generateExpression(ctx.expression(), mv);
+        mv.visitJumpInsn(Opcodes.IFEQ, loopEnd);
 
         // Loop body
         for (gemParser.StatementContext stmt : ctx.statement()) {
-            generateStatement(stmt, codeBuilder);
+            generateStatement(stmt, mv);
         }
 
         // Jump back to condition
-        codeBuilder.goto_(loopStart);
+        mv.visitJumpInsn(Opcodes.GOTO, loopStart);
 
         // End of loop
-        codeBuilder.labelBinding(loopEnd);
+        mv.visitLabel(loopEnd);
     }
 
-    private void generateLoop(gemParser.LoopContext ctx, CodeBuilder codeBuilder) {
+    private void generateLoop(gemParser.LoopContext ctx, MethodVisitor mv) {
         // Loop control labels
-        Label loopStart = codeBuilder.newLabel();
-        Label loopEnd = codeBuilder.newLabel(); // For future break support
+        Label loopStart = new Label();
+        Label loopEnd = new Label(); // For future break support
 
         // Start of loop
-        codeBuilder.labelBinding(loopStart);
+        mv.visitLabel(loopStart);
 
         // Loop body
         for (gemParser.StatementContext stmt : ctx.statement()) {
-            generateStatement(stmt, codeBuilder);
+            generateStatement(stmt, mv);
         }
 
         // Jump back to start
-        codeBuilder.goto_(loopStart);
+        mv.visitJumpInsn(Opcodes.GOTO, loopStart);
 
         // End of loop (for break statements)
-        codeBuilder.labelBinding(loopEnd);
+        mv.visitLabel(loopEnd);
     }
 
-    private void generatePrintStatement(gemParser.PrintStatementContext ctx, CodeBuilder codeBuilder) {
+    private void generatePrintStatement(gemParser.PrintStatementContext ctx, MethodVisitor mv) {
         // Get System.out
-        codeBuilder.getstatic(
-                ClassDesc.of("java.lang.System"),
+        mv.visitFieldInsn(
+                Opcodes.GETSTATIC,
+                "java/lang/System",
                 "out",
-                ClassDesc.of("java.io.PrintStream")
+                "Ljava/io/PrintStream;"
         );
 
         // Generate the expression
         String exprType = getExpressionType(ctx.expression());
-        generateExpression(ctx.expression(), codeBuilder);
+        generateExpression(ctx.expression(), mv);
 
         // Convert primitive types to String if needed
         if (!exprType.equals("string")) {
             switch(exprType) {
-                case "integer" -> codeBuilder.invokestatic(
-                        ClassDesc.of("java.lang.String"),
+                case "integer" -> mv.visitMethodInsn(
+                        Opcodes.INVOKESTATIC,
+                        "java/lang/String",
                         "valueOf",
-                        MethodTypeDesc.of(ClassDesc.of("java.lang.String"), ConstantDescs.CD_int)
+                        "(I)Ljava/lang/String;",
+                        false
                 );
-                case "number" -> codeBuilder.invokestatic(
-                        ClassDesc.of("java.lang.String"),
+                case "number" -> mv.visitMethodInsn(
+                        Opcodes.INVOKESTATIC,
+                        "java/lang/String",
                         "valueOf",
-                        MethodTypeDesc.of(ClassDesc.of("java.lang.String"), ConstantDescs.CD_float)
+                        "(F)Ljava/lang/String;",
+                        false
                 );
-                case "boolean" -> codeBuilder.invokestatic(
-                        ClassDesc.of("java.lang.String"),
+                case "boolean" -> mv.visitMethodInsn(
+                        Opcodes.INVOKESTATIC,
+                        "java/lang/String",
                         "valueOf",
-                        MethodTypeDesc.of(ClassDesc.of("java.lang.String"), ConstantDescs.CD_boolean)
+                        "(Z)Ljava/lang/String;",
+                        false
                 );
                 default -> throw new UnsupportedOperationException("Cannot print type: " + exprType);
             }
         }
 
         // Call println
-        codeBuilder.invokevirtual(
-                ClassDesc.of("java.io.PrintStream"),
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                "java/io/PrintStream",
                 "println",
-                MethodTypeDesc.of(ConstantDescs.CD_void, ClassDesc.of("java.lang.String"))
+                "(Ljava/lang/String;)V",
+                false
         );
     }
 
-    private void generateReadStatement(gemParser.ReadStatementContext ctx, CodeBuilder codeBuilder) {
+    private void generateReadStatement(gemParser.ReadStatementContext ctx, MethodVisitor mv) {
         String funcName = ctx.ID().getText();
 
         // Create Scanner
-        codeBuilder.new_(ClassDesc.of("java.util.Scanner"));
-        codeBuilder.dup();
-        codeBuilder.getstatic(
-                ClassDesc.of("java.lang.System"),
+        mv.visitTypeInsn(Opcodes.NEW, "java/util/Scanner");
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitFieldInsn(
+                Opcodes.GETSTATIC,
+                "java/lang/System",
                 "in",
-                ClassDesc.of("java.io.InputStream")
+                "Ljava/io/InputStream;"
         );
-        codeBuilder.invokespecial(
-                ClassDesc.of("java.util.Scanner"),
+        mv.visitMethodInsn(
+                Opcodes.INVOKESPECIAL,
+                "java/util/Scanner",
                 "<init>",
-                MethodTypeDesc.of(ConstantDescs.CD_void, ClassDesc.of("java.io.InputStream"))
+                "(Ljava/io/InputStream;)V",
+                false
         );
 
         // Call appropriate method
         if (funcName.equals("read_line")) {
-            codeBuilder.invokevirtual(
-                    ClassDesc.of("java.util.Scanner"),
+            mv.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Scanner",
                     "nextLine",
-                    MethodTypeDesc.of(ClassDesc.of("java.lang.String"))
+                    "()Ljava/lang/String;",
+                    false
             );
         } else if (funcName.equals("read_integer")) {
-            codeBuilder.invokevirtual(
-                    ClassDesc.of("java.util.Scanner"),
+            mv.visitMethodInsn(
+                    Opcodes.INVOKEVIRTUAL,
+                    "java/util/Scanner",
                     "nextInt",
-                    MethodTypeDesc.of(ConstantDescs.CD_int)
+                    "()I",
+                    false
             );
         } else {
             throw new UnsupportedOperationException("Unsupported read function: " + funcName);
@@ -369,142 +403,142 @@ public class CodeGenerator {
         // Result is on stack, caller needs to store it
     }
 
-    private void generateExpression(gemParser.ExpressionContext ctx, CodeBuilder codeBuilder) {
-        generateLogicalExpression(ctx.logicalExpression(), codeBuilder);
+    private void generateExpression(gemParser.ExpressionContext ctx, MethodVisitor mv) {
+        generateLogicalExpression(ctx.logicalExpression(), mv);
     }
 
-    private void generateLogicalExpression(gemParser.LogicalExpressionContext ctx, CodeBuilder codeBuilder) {
+    private void generateLogicalExpression(gemParser.LogicalExpressionContext ctx, MethodVisitor mv) {
         if (ctx.comparisonExpression().size() == 1) {
-            generateComparisonExpression(ctx.comparisonExpression(0), codeBuilder);
+            generateComparisonExpression(ctx.comparisonExpression(0), mv);
             return;
         }
 
         // First operand
-        generateComparisonExpression(ctx.comparisonExpression(0), codeBuilder);
+        generateComparisonExpression(ctx.comparisonExpression(0), mv);
 
         for (int i = 0; i < ctx.getChildCount() / 2; i++) {
             String operator = ctx.getChild(i * 2 + 1).getText();
 
             if (operator.equals("and")) {
                 // Short-circuit AND
-                Label falseLabel = codeBuilder.newLabel();
-                Label endLabel = codeBuilder.newLabel();
+                Label falseLabel = new Label();
+                Label endLabel = new Label();
 
                 // Check if first operand is false
-                codeBuilder.ifeq(falseLabel);
+                mv.visitJumpInsn(Opcodes.IFEQ, falseLabel);
 
                 // Evaluate second operand
-                generateComparisonExpression(ctx.comparisonExpression(i + 1), codeBuilder);
-                codeBuilder.goto_(endLabel);
+                generateComparisonExpression(ctx.comparisonExpression(i + 1), mv);
+                mv.visitJumpInsn(Opcodes.GOTO, endLabel);
 
                 // First operand was false, result is false
-                codeBuilder.labelBinding(falseLabel);
-                codeBuilder.iconst_0();
+                mv.visitLabel(falseLabel);
+                mv.visitInsn(Opcodes.ICONST_0);
 
-                codeBuilder.labelBinding(endLabel);
+                mv.visitLabel(endLabel);
             } else if (operator.equals("or")) {
                 // Short-circuit OR
-                Label trueLabel = codeBuilder.newLabel();
-                Label endLabel = codeBuilder.newLabel();
+                Label trueLabel = new Label();
+                Label endLabel = new Label();
 
                 // Check if first operand is true
-                codeBuilder.ifne(trueLabel);
+                mv.visitJumpInsn(Opcodes.IFNE, trueLabel);
 
                 // Evaluate second operand
-                generateComparisonExpression(ctx.comparisonExpression(i + 1), codeBuilder);
-                codeBuilder.goto_(endLabel);
+                generateComparisonExpression(ctx.comparisonExpression(i + 1), mv);
+                mv.visitJumpInsn(Opcodes.GOTO, endLabel);
 
                 // First operand was true, result is true
-                codeBuilder.labelBinding(trueLabel);
-                codeBuilder.iconst_1();
+                mv.visitLabel(trueLabel);
+                mv.visitInsn(Opcodes.ICONST_1);
 
-                codeBuilder.labelBinding(endLabel);
+                mv.visitLabel(endLabel);
             }
         }
     }
 
-    private void generateComparisonExpression(gemParser.ComparisonExpressionContext ctx, CodeBuilder codeBuilder) {
+    private void generateComparisonExpression(gemParser.ComparisonExpressionContext ctx, MethodVisitor mv) {
         if (ctx.additiveExpression().size() == 1) {
-            generateAdditiveExpression(ctx.additiveExpression(0), codeBuilder);
+            generateAdditiveExpression(ctx.additiveExpression(0), mv);
             return;
         }
 
         // Generate operands
-        generateAdditiveExpression(ctx.additiveExpression(0), codeBuilder);
-        generateAdditiveExpression(ctx.additiveExpression(1), codeBuilder);
+        generateAdditiveExpression(ctx.additiveExpression(0), mv);
+        generateAdditiveExpression(ctx.additiveExpression(1), mv);
 
         // Compare based on operator
         String op = ctx.getChild(1).getText();
-        Label trueLabel = codeBuilder.newLabel();
-        Label endLabel = codeBuilder.newLabel();
+        Label trueLabel = new Label();
+        Label endLabel = new Label();
 
         switch (op) {
-            case "<" -> codeBuilder.if_icmplt(trueLabel);
-            case ">" -> codeBuilder.if_icmpgt(trueLabel);
-            case "<=" -> codeBuilder.if_icmple(trueLabel);
-            case ">=" -> codeBuilder.if_icmpge(trueLabel);
-            case "==" -> codeBuilder.if_icmpeq(trueLabel);
-            case "!=" -> codeBuilder.if_icmpne(trueLabel);
+            case "<" -> mv.visitJumpInsn(Opcodes.IF_ICMPLT, trueLabel);
+            case ">" -> mv.visitJumpInsn(Opcodes.IF_ICMPGT, trueLabel);
+            case "<=" -> mv.visitJumpInsn(Opcodes.IF_ICMPLE, trueLabel);
+            case ">=" -> mv.visitJumpInsn(Opcodes.IF_ICMPGE, trueLabel);
+            case "==" -> mv.visitJumpInsn(Opcodes.IF_ICMPEQ, trueLabel);
+            case "!=" -> mv.visitJumpInsn(Opcodes.IF_ICMPNE, trueLabel);
             default -> throw new UnsupportedOperationException("Unsupported comparison operator: " + op);
         }
 
         // False path
-        codeBuilder.iconst_0();
-        codeBuilder.goto_(endLabel);
+        mv.visitInsn(Opcodes.ICONST_0);
+        mv.visitJumpInsn(Opcodes.GOTO, endLabel);
 
         // True path
-        codeBuilder.labelBinding(trueLabel);
-        codeBuilder.iconst_1();
+        mv.visitLabel(trueLabel);
+        mv.visitInsn(Opcodes.ICONST_1);
 
-        codeBuilder.labelBinding(endLabel);
+        mv.visitLabel(endLabel);
     }
 
-    private void generateAdditiveExpression(gemParser.AdditiveExpressionContext ctx, CodeBuilder codeBuilder) {
+    private void generateAdditiveExpression(gemParser.AdditiveExpressionContext ctx, MethodVisitor mv) {
         if (ctx.multiplicativeExpression().size() == 1) {
-            generateMultiplicativeExpression(ctx.multiplicativeExpression(0), codeBuilder);
+            generateMultiplicativeExpression(ctx.multiplicativeExpression(0), mv);
             return;
         }
 
         // First operand
-        generateMultiplicativeExpression(ctx.multiplicativeExpression(0), codeBuilder);
+        generateMultiplicativeExpression(ctx.multiplicativeExpression(0), mv);
 
         // Process operations left to right
         for (int i = 1; i < ctx.multiplicativeExpression().size(); i++) {
-            generateMultiplicativeExpression(ctx.multiplicativeExpression(i), codeBuilder);
+            generateMultiplicativeExpression(ctx.multiplicativeExpression(i), mv);
 
             String op = ctx.getChild(i * 2 - 1).getText();
             if (op.equals("+")) {
-                codeBuilder.iadd();
+                mv.visitInsn(Opcodes.IADD);
             } else if (op.equals("-")) {
-                codeBuilder.isub();
+                mv.visitInsn(Opcodes.ISUB);
             }
         }
     }
 
-    private void generateMultiplicativeExpression(gemParser.MultiplicativeExpressionContext ctx, CodeBuilder codeBuilder) {
+    private void generateMultiplicativeExpression(gemParser.MultiplicativeExpressionContext ctx, MethodVisitor mv) {
         if (ctx.messageExpression().size() == 1) {
-            generateMessageExpression(ctx.messageExpression(0), codeBuilder);
+            generateMessageExpression(ctx.messageExpression(0), mv);
             return;
         }
 
         // First operand
-        generateMessageExpression(ctx.messageExpression(0), codeBuilder);
+        generateMessageExpression(ctx.messageExpression(0), mv);
 
         // Process operations left to right
         for (int i = 1; i < ctx.messageExpression().size(); i++) {
-            generateMessageExpression(ctx.messageExpression(i), codeBuilder);
+            generateMessageExpression(ctx.messageExpression(i), mv);
 
             String op = ctx.getChild(i * 2 - 1).getText();
             switch (op) {
-                case "*" -> codeBuilder.imul();
-                case "/" -> codeBuilder.idiv();
-                case "%" -> codeBuilder.irem();
+                case "*" -> mv.visitInsn(Opcodes.IMUL);
+                case "/" -> mv.visitInsn(Opcodes.IDIV);
+                case "%" -> mv.visitInsn(Opcodes.IREM);
                 default -> throw new UnsupportedOperationException("Unsupported multiplicative operator: " + op);
             }
         }
     }
 
-    private void generateMessageExpression(gemParser.MessageExpressionContext ctx, CodeBuilder codeBuilder) {
+    private void generateMessageExpression(gemParser.MessageExpressionContext ctx, MethodVisitor mv) {
         if (ctx.ARROW() != null || (ctx.DOT() != null && ctx.LPAREN() != null) || ctx.LBRACK() != null) {
             throw new UnsupportedOperationException("Message passing, method calls, and arrays not supported in this version");
         }
@@ -513,77 +547,77 @@ public class CodeGenerator {
             throw new UnsupportedOperationException("Field access not supported in this version");
         }
 
-        generatePrimaryExpression(ctx.primaryExpression(), codeBuilder);
+        generatePrimaryExpression(ctx.primaryExpression(), mv);
     }
 
-    private void generatePrimaryExpression(gemParser.PrimaryExpressionContext ctx, CodeBuilder codeBuilder) {
+    private void generatePrimaryExpression(gemParser.PrimaryExpressionContext ctx, MethodVisitor mv) {
         if (ctx.ID() != null && ctx.LPAREN() == null) {
             // Variable reference
             String varName = ctx.ID().getText();
             String varType = semanticAnalyzer.getVariableType(varName);
-            loadVariable(varName, varType, codeBuilder);
+            loadVariable(varName, varType, mv);
         } else if (ctx.literal() != null) {
             // Literal value
-            generateLiteral(ctx.literal(), codeBuilder);
+            generateLiteral(ctx.literal(), mv);
         } else if (ctx.expression() != null) {
             // Parenthesized expression
-            generateExpression(ctx.expression(), codeBuilder);
+            generateExpression(ctx.expression(), mv);
         } else if (ctx.ID() != null && ctx.LPAREN() != null) {
             // Function call
             throw new UnsupportedOperationException("Function calls not supported in this version");
         }
     }
 
-    private void generateLiteral(gemParser.LiteralContext ctx, CodeBuilder codeBuilder) {
+    private void generateLiteral(gemParser.LiteralContext ctx, MethodVisitor mv) {
         if (ctx.INTEGER_LITERAL() != null) {
             int value = Integer.parseInt(ctx.INTEGER_LITERAL().getText());
             switch (value) {
-                case -1 -> codeBuilder.iconst_m1();
-                case 0 -> codeBuilder.iconst_0();
-                case 1 -> codeBuilder.iconst_1();
-                case 2 -> codeBuilder.iconst_2();
-                case 3 -> codeBuilder.iconst_3();
-                case 4 -> codeBuilder.iconst_4();
-                case 5 -> codeBuilder.iconst_5();
+                case -1 -> mv.visitInsn(Opcodes.ICONST_M1);
+                case 0 -> mv.visitInsn(Opcodes.ICONST_0);
+                case 1 -> mv.visitInsn(Opcodes.ICONST_1);
+                case 2 -> mv.visitInsn(Opcodes.ICONST_2);
+                case 3 -> mv.visitInsn(Opcodes.ICONST_3);
+                case 4 -> mv.visitInsn(Opcodes.ICONST_4);
+                case 5 -> mv.visitInsn(Opcodes.ICONST_5);
                 default -> {
                     if (value >= -128 && value <= 127) {
-                        codeBuilder.bipush(value);
+                        mv.visitIntInsn(Opcodes.BIPUSH, value);
                     } else if (value >= -32768 && value <= 32767) {
-                        codeBuilder.sipush(value);
+                        mv.visitIntInsn(Opcodes.SIPUSH, value);
                     } else {
-                        codeBuilder.ldc(value);
+                        mv.visitLdcInsn(value);
                     }
                 }
             }
         } else if (ctx.FLOAT_LITERAL() != null) {
             float value = Float.parseFloat(ctx.FLOAT_LITERAL().getText());
             if (value == 0.0f) {
-                codeBuilder.fconst_0();
+                mv.visitInsn(Opcodes.FCONST_0);
             } else if (value == 1.0f) {
-                codeBuilder.fconst_1();
+                mv.visitInsn(Opcodes.FCONST_1);
             } else if (value == 2.0f) {
-                codeBuilder.fconst_2();
+                mv.visitInsn(Opcodes.FCONST_2);
             } else {
-                codeBuilder.ldc(value);
+                mv.visitLdcInsn(value);
             }
         } else if (ctx.STRING_LITERAL() != null) {
             String value = ctx.STRING_LITERAL().getText();
             // Remove quotes
             value = value.substring(1, value.length() - 1);
-            codeBuilder.ldc(value);
+            mv.visitLdcInsn(value);
         } else if (ctx.BOOLEAN_LITERAL() != null) {
             String value = ctx.BOOLEAN_LITERAL().getText();
             if (value.equals("yes")) {
-                codeBuilder.iconst_1();
+                mv.visitInsn(Opcodes.ICONST_1);
             } else {
-                codeBuilder.iconst_0();
+                mv.visitInsn(Opcodes.ICONST_0);
             }
         } else if (ctx.arrayLiteral() != null) {
             throw new UnsupportedOperationException("Arrays not supported in this version");
         }
     }
 
-    private void loadVariable(String name, String type, CodeBuilder codeBuilder) {
+    private void loadVariable(String name, String type, MethodVisitor mv) {
         if (!localVars.containsKey(name)) {
             throw new RuntimeException("Variable not found: " + name);
         }
@@ -591,14 +625,14 @@ public class CodeGenerator {
         int index = localVars.get(name);
 
         switch (type) {
-            case "integer", "boolean" -> codeBuilder.iload(index);
-            case "number" -> codeBuilder.fload(index);
-            case "string" -> codeBuilder.aload(index);
+            case "integer", "boolean" -> mv.visitVarInsn(Opcodes.ILOAD, index);
+            case "number" -> mv.visitVarInsn(Opcodes.FLOAD, index);
+            case "string" -> mv.visitVarInsn(Opcodes.ALOAD, index);
             default -> throw new UnsupportedOperationException("Loading not supported for type: " + type);
         }
     }
 
-    private void storeVariable(String name, String type, CodeBuilder codeBuilder) {
+    private void storeVariable(String name, String type, MethodVisitor mv) {
         if (!localVars.containsKey(name)) {
             throw new RuntimeException("Variable not found: " + name);
         }
@@ -606,9 +640,9 @@ public class CodeGenerator {
         int index = localVars.get(name);
 
         switch (type) {
-            case "integer", "boolean" -> codeBuilder.istore(index);
-            case "number" -> codeBuilder.fstore(index);
-            case "string" -> codeBuilder.astore(index);
+            case "integer", "boolean" -> mv.visitVarInsn(Opcodes.ISTORE, index);
+            case "number" -> mv.visitVarInsn(Opcodes.FSTORE, index);
+            case "string" -> mv.visitVarInsn(Opcodes.ASTORE, index);
             default -> throw new UnsupportedOperationException("Storing not supported for type: " + type);
         }
     }
@@ -631,6 +665,7 @@ public class CodeGenerator {
         return null;
     }
 
+    // Type analysis methods
     private String getExpressionType(gemParser.ExpressionContext ctx) {
         return getLogicalExpressionType(ctx.logicalExpression());
     }
