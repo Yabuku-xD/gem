@@ -1,50 +1,145 @@
--- A simple calculator program using supported features
--- Expected output will vary based on user input
+-- Enhanced calculator program with more operations and features
+-- Now that the compiler bug is fixed, we can add more functionality
 
 start
-  print "Basic Calculator"
-  print "----------------"
+  string continue_calc = "yes"
 
-  print "Enter first number:"
-  integer num1 = read_integer()
+  while continue_calc == "yes"
+    print "\nEnhanced Calculator"
+    print "------------------"
 
-  print "Enter second number:"
-  integer num2 = read_integer()
+    print "Enter first number:"
+    integer num1 = read_integer()
 
-  print "Choose operation:"
-  print "1. Addition"
-  print "2. Subtraction"
-  print "3. Multiplication"
-  print "4. Division"
-  print "5. Remainder"
+    print "Enter second number:"
+    integer num2 = read_integer()
 
-  integer choice = read_integer()
-  integer result = 0
+    print "\nAvailable Operations:"
+    print "1. Addition"
+    print "2. Subtraction"
+    print "3. Multiplication"
+    print "4. Division"
+    print "5. Remainder/Modulus"
+    print "6. Integer Power (first^second)"
+    print "7. Square root (of first number)"
+    print "8. Maximum"
+    print "9. Minimum"
+    print "10. Exit"
 
-  if choice == 1
-    result = num1 + num2
-    print "Result of addition: " + result
-  else if choice == 2
-    result = num1 - num2
-    print "Result of subtraction: " + result
-  else if choice == 3
-    result = num1 * num2
-    print "Result of multiplication: " + result
-  else if choice == 4
-    if num2 == 0
-      print "Error: Cannot divide by zero"
+    print "\nChoose operation (1-10):"
+    integer choice = read_integer()
+    integer result = 0
+
+    -- Addition
+    if choice == 1
+      result = num1 + num2
+      print num1 + " + " + num2 + " = " + result
+
+    -- Subtraction
+    else if choice == 2
+      result = num1 - num2
+      print num1 + " - " + num2 + " = " + result
+
+    -- Multiplication
+    else if choice == 3
+      result = num1 * num2
+      print num1 + " * " + num2 + " = " + result
+
+    -- Division
+    else if choice == 4
+      if num2 == 0
+        print "Error: Cannot divide by zero"
+      else
+        result = num1 / num2
+        print num1 + " / " + num2 + " = " + result
+
+        -- Show decimal approximation note for integer division
+        if num1 % num2 != 0
+          print "Note: Integer division truncates decimal portion"
+        end if
+      end if
+
+    -- Remainder/Modulus
+    else if choice == 5
+      if num2 == 0
+        print "Error: Cannot find remainder with zero"
+      else
+        result = num1 % num2
+        print num1 + " % " + num2 + " = " + result
+      end if
+
+    -- Integer Power (simple implementation for non-negative powers)
+    else if choice == 6
+      if num2 < 0
+        print "Error: Negative powers not supported in this calculator"
+      else
+        result = 1
+        integer i = 0
+        while i < num2
+          result = result * num1
+          i = i + 1
+        end while
+        print num1 + " ^ " + num2 + " = " + result
+      end if
+
+    -- Square root (integer approximation)
+    else if choice == 7
+      if num1 < 0
+        print "Error: Cannot calculate square root of negative number"
+      else if num1 == 0
+        result = 0
+        print "Square root of 0 = 0"
+      else
+        -- Simple integer square root algorithm
+        result = 1
+        while result * result <= num1
+          result = result + 1
+        end while
+        result = result - 1
+        print "Square root of " + num1 + " ≈ " + result + " (integer approximation)"
+      end if
+
+    -- Maximum
+    else if choice == 8
+      if num1 > num2
+        result = num1
+      else
+        result = num2
+      end if
+      print "Maximum of " + num1 + " and " + num2 + " = " + result
+
+    -- Minimum
+    else if choice == 9
+      if num1 < num2
+        result = num1
+      else
+        result = num2
+      end if
+      print "Minimum of " + num1 + " and " + num2 + " = " + result
+
+    -- Exit
+    else if choice == 10
+      print "Exiting calculator..."
+      continue_calc = "no"
+
+    -- Invalid choice
     else
-      result = num1 / num2
-      print "Result of division: " + result
+      print "Invalid choice! Please select from options 1-10."
     end if
-  else if choice == 5
-    if num2 == 0
-      print "Error: Cannot find remainder with zero"
-    else
-      result = num1 % num2
-      print "Remainder: " + result
+
+    -- Ask if user wants to continue
+    if continue_calc != "no"
+      print "\nDo you want to perform another calculation?"
+      print "1. Yes"
+      print "2. No"
+
+      integer continue_choice = read_integer()
+      if continue_choice == 1
+        continue_calc = "yes"
+      else
+        continue_calc = "no"
+        print "Thank you for using the enhanced calculator!"
+      end if
     end if
-  else
-    print "Invalid choice!"
-  end if
+  end while
 finish

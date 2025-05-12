@@ -4,6 +4,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
 
 public class CodeGenerator {
     private GemSemanticAnalyzer semanticAnalyzer;
@@ -222,7 +224,7 @@ public class CodeGenerator {
 
     private void generateIfStatement(gemParser.IfStatementContext ctx, MethodVisitor mv) {
         if (ctx.THEN() != null) {
-            // Single-line if-then form
+            // Single-line if-then form (this part is mostly fine)
             Label endLabel = new Label();
 
             // Generate condition
@@ -246,20 +248,53 @@ public class CodeGenerator {
             // Multi-line if-then-end form
             Label endLabel = new Label();
 
+            // Save the current variable count - for proper scoping
+            int originalVarCount = nextVarIndex;
+            Map<String, Integer> originalVars = new HashMap<>(localVars);
+
             // Process each if/else-if condition with proper branching
             int numExpressions = ctx.expression().size();
             Label[] falseLabels = new Label[numExpressions];
 
+            // Count statements in each branch for accurate mapping
+            List<Integer> branchStarts = new ArrayList<>();
+            List<Integer> branchEnds = new ArrayList<>();
+
+            int currentPos = 0;
+            for (int i = 0; i < ctx.getChildCount(); i++) {
+                if (ctx.getChild(i) instanceof gemParser.ExpressionContext) {
+                    branchStarts.add(currentPos);
+                } else if (ctx.getChild(i) instanceof gemParser.StatementContext) {
+                    currentPos++;
+                } else if (ctx.getChild(i).getText().equals("else") &&
+                        (i + 1 < ctx.getChildCount() && !ctx.getChild(i + 1).getText().equals("if"))) {
+                    // This is an 'else' without an 'if' - marks the last branch
+                    branchStarts.add(currentPos);
+                    break;
+                }
+            }
+
+            // Calculate the end of each branch
+            for (int i = 0; i < branchStarts.size() - 1; i++) {
+                branchEnds.add(branchStarts.get(i + 1));
+            }
+            branchEnds.add(ctx.statement().size());
+
+            // Now process each branch with proper statement handling
             for (int i = 0; i < numExpressions; i++) {
+                // Reset variables to original state for each branch
+                nextVarIndex = originalVarCount;
+                localVars = new HashMap<>(originalVars);
+
                 falseLabels[i] = new Label();
 
                 // Generate condition
                 generateExpression(ctx.expression(i), mv);
                 mv.visitJumpInsn(Opcodes.IFEQ, falseLabels[i]);
 
-                // Generate statements for this block
-                int startStmt = calculateStartStatementIndex(ctx, i);
-                int endStmt = calculateEndStatementIndex(ctx, i);
+                // Generate statements for this block using correct indices
+                int startStmt = branchStarts.get(i);
+                int endStmt = branchEnds.get(i);
 
                 for (int j = startStmt; j < endStmt; j++) {
                     generateStatement(ctx.statement(j), mv);
@@ -273,38 +308,25 @@ public class CodeGenerator {
             }
 
             // Final else block (if exists)
-            if (ctx.ELSE() != null) {
-                int startStmt = calculateElseStatementIndex(ctx);
-                for (int j = startStmt; j < ctx.statement().size(); j++) {
+            if (ctx.ELSE() != null && branchStarts.size() > numExpressions) {
+                // Reset variables to original state for else branch
+                nextVarIndex = originalVarCount;
+                localVars = new HashMap<>(originalVars);
+
+                int startStmt = branchStarts.get(branchStarts.size() - 1);
+                int endStmt = branchEnds.get(branchEnds.size() - 1);
+
+                for (int j = startStmt; j < endStmt; j++) {
                     generateStatement(ctx.statement(j), mv);
                 }
             }
 
+            // Restore original variables after the entire if statement
+            nextVarIndex = originalVarCount;
+            localVars = originalVars;
+
             mv.visitLabel(endLabel);
         }
-    }
-
-    // Helper methods to calculate statement indices
-    private int calculateStartStatementIndex(gemParser.IfStatementContext ctx, int conditionIndex) {
-        if (conditionIndex == 0) return 0;
-        return calculateEndStatementIndex(ctx, conditionIndex - 1);
-    }
-
-    private int calculateEndStatementIndex(gemParser.IfStatementContext ctx, int conditionIndex) {
-        // Simple heuristic: divide statements evenly among conditions
-        // This is a simplified approach - a real compiler would need more complex analysis
-        int numConditions = ctx.expression().size();
-        int statementsPerCondition = ctx.ELSE() != null ?
-                (ctx.statement().size() / (numConditions + 1)) :
-                (ctx.statement().size() / numConditions);
-
-        return Math.min((conditionIndex + 1) * statementsPerCondition, ctx.statement().size());
-    }
-
-    private int calculateElseStatementIndex(gemParser.IfStatementContext ctx) {
-        int numConditions = ctx.expression().size();
-        int statementsPerCondition = ctx.statement().size() / (numConditions + 1);
-        return numConditions * statementsPerCondition;
     }
 
     private void generateForLoop(gemParser.ForLoopContext ctx, MethodVisitor mv) {
