@@ -243,29 +243,40 @@ public class CodeGenerator {
                 mv.visitLabel(endLabel);
             }
         } else {
-            // Multi-line if-then-end form with simple approach
+            // Multi-line if-then-end form
             Label endLabel = new Label();
 
-            // Generate condition
-            generateExpression(ctx.expression(0), mv);
-            Label falseLabel = new Label();
-            mv.visitJumpInsn(Opcodes.IFEQ, falseLabel);
+            // Process each if/else-if condition with proper branching
+            int numExpressions = ctx.expression().size();
+            Label[] falseLabels = new Label[numExpressions];
 
-            // Generate if body statements
-            int stmtStartIdx = 0;
-            int stmtEndIdx = getStatementIndexBeforeElse(ctx, 0);
-            for (int i = stmtStartIdx; i < stmtEndIdx; i++) {
-                generateStatement(ctx.statement(i), mv);
+            for (int i = 0; i < numExpressions; i++) {
+                falseLabels[i] = new Label();
+
+                // Generate condition
+                generateExpression(ctx.expression(i), mv);
+                mv.visitJumpInsn(Opcodes.IFEQ, falseLabels[i]);
+
+                // Generate statements for this block
+                int startStmt = calculateStartStatementIndex(ctx, i);
+                int endStmt = calculateEndStatementIndex(ctx, i);
+
+                for (int j = startStmt; j < endStmt; j++) {
+                    generateStatement(ctx.statement(j), mv);
+                }
+
+                // Skip to end when this block is finished
+                mv.visitJumpInsn(Opcodes.GOTO, endLabel);
+
+                // Add false label for this condition
+                mv.visitLabel(falseLabels[i]);
             }
 
-            mv.visitJumpInsn(Opcodes.GOTO, endLabel);
-            mv.visitLabel(falseLabel);
-
-            // Handle else block if present
+            // Final else block (if exists)
             if (ctx.ELSE() != null) {
-                // For simplicity, we're assuming a single else block only
-                for (int i = stmtEndIdx; i < ctx.statement().size(); i++) {
-                    generateStatement(ctx.statement(i), mv);
+                int startStmt = calculateElseStatementIndex(ctx);
+                for (int j = startStmt; j < ctx.statement().size(); j++) {
+                    generateStatement(ctx.statement(j), mv);
                 }
             }
 
@@ -273,10 +284,27 @@ public class CodeGenerator {
         }
     }
 
-    // Helper method to find statements before else
-    private int getStatementIndexBeforeElse(gemParser.IfStatementContext ctx, int startIndex) {
-        // A simplified implementation - in a real compiler, you'd need more sophisticated AST analysis
-        return ctx.ELSE() != null ? ctx.statement().size() / 2 : ctx.statement().size();
+    // Helper methods to calculate statement indices
+    private int calculateStartStatementIndex(gemParser.IfStatementContext ctx, int conditionIndex) {
+        if (conditionIndex == 0) return 0;
+        return calculateEndStatementIndex(ctx, conditionIndex - 1);
+    }
+
+    private int calculateEndStatementIndex(gemParser.IfStatementContext ctx, int conditionIndex) {
+        // Simple heuristic: divide statements evenly among conditions
+        // This is a simplified approach - a real compiler would need more complex analysis
+        int numConditions = ctx.expression().size();
+        int statementsPerCondition = ctx.ELSE() != null ?
+                (ctx.statement().size() / (numConditions + 1)) :
+                (ctx.statement().size() / numConditions);
+
+        return Math.min((conditionIndex + 1) * statementsPerCondition, ctx.statement().size());
+    }
+
+    private int calculateElseStatementIndex(gemParser.IfStatementContext ctx) {
+        int numConditions = ctx.expression().size();
+        int statementsPerCondition = ctx.statement().size() / (numConditions + 1);
+        return numConditions * statementsPerCondition;
     }
 
     private void generateForLoop(gemParser.ForLoopContext ctx, MethodVisitor mv) {
@@ -413,7 +441,10 @@ public class CodeGenerator {
 
     // Helper method to check if an expression is a string concatenation
     private boolean isConcatenation(gemParser.ExpressionContext ctx) {
-        gemParser.AdditiveExpressionContext addCtx = ctx.logicalExpression().comparisonExpression().additiveExpression();
+        // Get the first comparison expression
+        gemParser.ComparisonExpressionContext compCtx = ctx.logicalExpression().comparisonExpression(0);
+        // Get the first additive expression
+        gemParser.AdditiveExpressionContext addCtx = compCtx.additiveExpression(0);
         return addCtx.multiplicativeExpression().size() > 1 && addCtx.PLUS().size() > 0;
     }
 
@@ -431,10 +462,11 @@ public class CodeGenerator {
         );
 
         // Get the additive expression containing the concatenations
-        gemParser.AdditiveExpressionContext addCtx = ctx.logicalExpression().comparisonExpression().additiveExpression();
+        gemParser.ComparisonExpressionContext compCtx = ctx.logicalExpression().comparisonExpression(0);
+        gemParser.AdditiveExpressionContext addCtx = compCtx.additiveExpression(0);
 
         // Generate code for the first operand
-        String firstType = getExpressionType(addCtx.multiplicativeExpression(0));
+        String firstType = getMultiplicativeExpressionType(addCtx.multiplicativeExpression(0));
         generateMultiplicativeExpression(addCtx.multiplicativeExpression(0), mv);
 
         // Convert to string if needed and append
@@ -442,7 +474,7 @@ public class CodeGenerator {
 
         // Process the remaining operands
         for (int i = 1; i < addCtx.multiplicativeExpression().size(); i++) {
-            String opType = getExpressionType(addCtx.multiplicativeExpression(i));
+            String opType = getMultiplicativeExpressionType(addCtx.multiplicativeExpression(i));
             generateMultiplicativeExpression(addCtx.multiplicativeExpression(i), mv);
 
             // Convert to string if needed and append
@@ -855,24 +887,55 @@ public class CodeGenerator {
     }
 
     private String getMultiplicativeExpressionType(gemParser.MultiplicativeExpressionContext ctx) {
-        if (ctx.messageExpression().size() > 1) {
+        // If there's only one message expression, return its type
+        if (ctx.messageExpression().size() == 1) {
             return getMessageExpressionType(ctx.messageExpression(0));
         }
-        return getMessageExpressionType(ctx.messageExpression(0));
+
+        // Otherwise, determine the result type based on the operands
+        String leftType = getMessageExpressionType(ctx.messageExpression(0));
+        for (int i = 1; i < ctx.messageExpression().size(); i++) {
+            String rightType = getMessageExpressionType(ctx.messageExpression(i));
+
+            // If either type is "string", the result is a string
+            if (leftType.equals("string") || rightType.equals("string")) {
+                return "string";
+            }
+
+            // If either type is "number", the result is a number
+            if (leftType.equals("number") || rightType.equals("number")) {
+                return "number";
+            }
+        }
+
+        return leftType;
     }
 
     private String getMessageExpressionType(gemParser.MessageExpressionContext ctx) {
-        return getPrimaryExpressionType(ctx.primaryExpression());
+        if (ctx.primaryExpression() != null) {
+            return getPrimaryExpressionType(ctx.primaryExpression());
+        }
+        return "unknown";
     }
 
     private String getPrimaryExpressionType(gemParser.PrimaryExpressionContext ctx) {
-        if (ctx.ID() != null) {
+        if (ctx.ID() != null && ctx.LPAREN() == null) {
+            // Variable reference
             String varName = ctx.ID().getText();
             return semanticAnalyzer.getVariableType(varName);
         } else if (ctx.literal() != null) {
+            // Literal value
             return getLiteralType(ctx.literal());
         } else if (ctx.expression() != null) {
+            // Parenthesized expression
             return getExpressionType(ctx.expression());
+        } else if (ctx.ID() != null && ctx.LPAREN() != null) {
+            // Function call - simplified for now
+            String funcName = ctx.ID().getText();
+            if (funcName.equals("read_integer")) return "integer";
+            if (funcName.equals("read_line")) return "string";
+            // For other functions, we'd need to look up their return types
+            return "unknown";
         }
         return "unknown";
     }
