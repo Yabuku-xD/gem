@@ -17,6 +17,10 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
         globalScope.define("string", "type", "string", 0, 0);
         globalScope.define("boolean", "type", "boolean", 0, 0);
         globalScope.define("char", "type", "char", 0, 0);
+
+        // Initialize with built-in functions
+        globalScope.define("read_integer", "function", "integer", 0, 0);
+        globalScope.define("read_line", "function", "string", 0, 0);
     }
 
     public String analyzeTree(ParseTree tree) {
@@ -148,7 +152,8 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
 
     @Override
     public String visitPrimaryExpression(gemParser.PrimaryExpressionContext ctx) {
-        if (ctx.ID() != null) {
+        if (ctx.ID() != null && ctx.LPAREN() == null) {
+            // Variable reference
             String varName = ctx.ID().getText();
             if (!definedVariables.containsKey(varName)) {
                 errors.add(new UndefinedVariableError(
@@ -159,10 +164,41 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             }
             return definedVariables.get(varName);
         } else if (ctx.literal() != null) {
+            // Literal value
             return visitLiteral(ctx.literal());
         } else if (ctx.expression() != null) {
+            // Parenthesized expression
             return getExpressionType(ctx.expression());
+        } else if (ctx.ID() != null && ctx.LPAREN() != null) {
+            // Function call
+            String funcName = ctx.ID().getText();
+
+            // Check for built-in functions
+            if (funcName.equals("read_integer")) {
+                return "integer";
+            } else if (funcName.equals("read_line")) {
+                return "string";
+            } else if (funcName.equals("length")) {
+                return "integer";
+            } else if (funcName.equals("uppercase")) {
+                return "string";
+            } else if (funcName.equals("split")) {
+                return "string[]";
+            }
+
+            // Regular function call
+            Symbol functionSymbol = globalScope.lookup(funcName);
+            if (functionSymbol == null) {
+                errors.add(new UndefinedVariableError(
+                        "Function used before definition: " + funcName,
+                        ctx.ID().getSymbol().getLine(),
+                        ctx.ID().getSymbol().getCharPositionInLine()));
+                return null;
+            }
+
+            return functionSymbol.getDataType();
         }
+
         return null;
     }
 
@@ -189,7 +225,9 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
 
     @Override
     public String visitLogicalExpression(gemParser.LogicalExpressionContext ctx) {
-        if (ctx.AND() != null || ctx.OR() != null) {
+        // Only check for boolean operands if there are actually logical operators present
+        // We can determine this by checking if there are multiple comparison expressions
+        if (ctx.comparisonExpression().size() > 1) {
             // Check that both operands are boolean
             for (gemParser.ComparisonExpressionContext expr : ctx.comparisonExpression()) {
                 String type = visitComparisonExpression(expr);

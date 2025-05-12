@@ -61,12 +61,6 @@ tasks.register<JavaExec>("compileGemFile") {
     dependsOn("jar")
     mainClass.set("GemCompiler")
     classpath = sourceSets.main.get().runtimeClasspath
-
-    if (project.hasProperty("file")) {
-        args = listOf(project.property("file").toString())
-    } else {
-        println("Please provide a Gem file: -Pfile=samples/hello.gem")
-    }
 }
 
 tasks.register<Exec>("runGemProgram") {

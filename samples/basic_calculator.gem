@@ -21,24 +21,24 @@ start
   integer choice = read_integer()
   integer result = 0
 
-  if choice == 1 then
+  if choice == 1
     result = num1 + num2
     print "Result of addition: " + result
-  else if choice == 2 then
+  else if choice == 2
     result = num1 - num2
     print "Result of subtraction: " + result
-  else if choice == 3 then
+  else if choice == 3
     result = num1 * num2
     print "Result of multiplication: " + result
-  else if choice == 4 then
-    if num2 == 0 then
+  else if choice == 4
+    if num2 == 0
       print "Error: Cannot divide by zero"
     else
       result = num1 / num2
       print "Result of division: " + result
     end if
-  else if choice == 5 then
-    if num2 == 0 then
+  else if choice == 5
+    if num2 == 0
       print "Error: Cannot find remainder with zero"
     else
       result = num1 % num2

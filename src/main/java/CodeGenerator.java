@@ -119,7 +119,52 @@ public class CodeGenerator {
             // Evaluate expression and discard result
             generateExpression(ctx.expression(), mv);
             mv.visitInsn(Opcodes.POP); // Pop the value from the stack
-        } else if (ctx.functionCall() != null || ctx.innerFunctionDeclaration() != null ||
+        } else if (ctx.functionCall() != null) {
+            // Special handling for console I/O functions
+            String functionName = ctx.functionCall().ID(0).getText();
+            if (functionName.equals("read_integer") || functionName.equals("read_line")) {
+                // Create a read statement context or directly implement the read logic here
+
+                // Create a Scanner
+                mv.visitTypeInsn(Opcodes.NEW, "java/util/Scanner");
+                mv.visitInsn(Opcodes.DUP);
+                mv.visitFieldInsn(
+                        Opcodes.GETSTATIC,
+                        "java/lang/System",
+                        "in",
+                        "Ljava/io/InputStream;"
+                );
+                mv.visitMethodInsn(
+                        Opcodes.INVOKESPECIAL,
+                        "java/util/Scanner",
+                        "<init>",
+                        "(Ljava/io/InputStream;)V",
+                        false
+                );
+
+                // Call appropriate method
+                if (functionName.equals("read_line")) {
+                    mv.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "java/util/Scanner",
+                            "nextLine",
+                            "()Ljava/lang/String;",
+                            false
+                    );
+                } else if (functionName.equals("read_integer")) {
+                    mv.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "java/util/Scanner",
+                            "nextInt",
+                            "()I",
+                            false
+                    );
+                }
+            } else {
+                // Other function calls are not supported yet
+                throw new UnsupportedOperationException("Function calls not supported in this version");
+            }
+        } else if (ctx.innerFunctionDeclaration() != null ||
                 ctx.returnStatement() != null || ctx.breakStatement() != null) {
             throw new UnsupportedOperationException("Functions not supported in this version");
         } else {
@@ -319,33 +364,40 @@ public class CodeGenerator {
 
         // Generate the expression
         String exprType = getExpressionType(ctx.expression());
-        generateExpression(ctx.expression(), mv);
 
-        // Convert primitive types to String if needed
-        if (!exprType.equals("string")) {
-            switch(exprType) {
-                case "integer" -> mv.visitMethodInsn(
-                        Opcodes.INVOKESTATIC,
-                        "java/lang/String",
-                        "valueOf",
-                        "(I)Ljava/lang/String;",
-                        false
-                );
-                case "number" -> mv.visitMethodInsn(
-                        Opcodes.INVOKESTATIC,
-                        "java/lang/String",
-                        "valueOf",
-                        "(F)Ljava/lang/String;",
-                        false
-                );
-                case "boolean" -> mv.visitMethodInsn(
-                        Opcodes.INVOKESTATIC,
-                        "java/lang/String",
-                        "valueOf",
-                        "(Z)Ljava/lang/String;",
-                        false
-                );
-                default -> throw new UnsupportedOperationException("Cannot print type: " + exprType);
+        // Check if it's a string concatenation operation
+        if (isConcatenation(ctx.expression())) {
+            generateStringConcatenation(ctx.expression(), mv);
+        } else {
+            // Generate a normal expression
+            generateExpression(ctx.expression(), mv);
+
+            // Convert primitive types to String if needed
+            if (!exprType.equals("string")) {
+                switch(exprType) {
+                    case "integer" -> mv.visitMethodInsn(
+                            Opcodes.INVOKESTATIC,
+                            "java/lang/String",
+                            "valueOf",
+                            "(I)Ljava/lang/String;",
+                            false
+                    );
+                    case "number" -> mv.visitMethodInsn(
+                            Opcodes.INVOKESTATIC,
+                            "java/lang/String",
+                            "valueOf",
+                            "(F)Ljava/lang/String;",
+                            false
+                    );
+                    case "boolean" -> mv.visitMethodInsn(
+                            Opcodes.INVOKESTATIC,
+                            "java/lang/String",
+                            "valueOf",
+                            "(Z)Ljava/lang/String;",
+                            false
+                    );
+                    default -> throw new UnsupportedOperationException("Cannot print type: " + exprType);
+                }
             }
         }
 
@@ -355,6 +407,75 @@ public class CodeGenerator {
                 "java/io/PrintStream",
                 "println",
                 "(Ljava/lang/String;)V",
+                false
+        );
+    }
+
+    // Helper method to check if an expression is a string concatenation
+    private boolean isConcatenation(gemParser.ExpressionContext ctx) {
+        gemParser.AdditiveExpressionContext addCtx = ctx.logicalExpression().comparisonExpression().additiveExpression();
+        return addCtx.multiplicativeExpression().size() > 1 && addCtx.PLUS().size() > 0;
+    }
+
+    // Method to generate string concatenation
+    private void generateStringConcatenation(gemParser.ExpressionContext ctx, MethodVisitor mv) {
+        // Create a StringBuilder
+        mv.visitTypeInsn(Opcodes.NEW, "java/lang/StringBuilder");
+        mv.visitInsn(Opcodes.DUP);
+        mv.visitMethodInsn(
+                Opcodes.INVOKESPECIAL,
+                "java/lang/StringBuilder",
+                "<init>",
+                "()V",
+                false
+        );
+
+        // Get the additive expression containing the concatenations
+        gemParser.AdditiveExpressionContext addCtx = ctx.logicalExpression().comparisonExpression().additiveExpression();
+
+        // Generate code for the first operand
+        String firstType = getExpressionType(addCtx.multiplicativeExpression(0));
+        generateMultiplicativeExpression(addCtx.multiplicativeExpression(0), mv);
+
+        // Convert to string if needed and append
+        appendToStringBuilder(mv, firstType);
+
+        // Process the remaining operands
+        for (int i = 1; i < addCtx.multiplicativeExpression().size(); i++) {
+            String opType = getExpressionType(addCtx.multiplicativeExpression(i));
+            generateMultiplicativeExpression(addCtx.multiplicativeExpression(i), mv);
+
+            // Convert to string if needed and append
+            appendToStringBuilder(mv, opType);
+        }
+
+        // Convert StringBuilder to String
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                "java/lang/StringBuilder",
+                "toString",
+                "()Ljava/lang/String;",
+                false
+        );
+    }
+
+    // Helper method to append a value to StringBuilder
+    private void appendToStringBuilder(MethodVisitor mv, String type) {
+        // Append method signature depends on the type
+        String descriptor;
+        switch (type) {
+            case "integer" -> descriptor = "(I)Ljava/lang/StringBuilder;";
+            case "number" -> descriptor = "(F)Ljava/lang/StringBuilder;";
+            case "boolean" -> descriptor = "(Z)Ljava/lang/StringBuilder;";
+            case "string" -> descriptor = "(Ljava/lang/String;)Ljava/lang/StringBuilder;";
+            default -> descriptor = "(Ljava/lang/Object;)Ljava/lang/StringBuilder;";
+        }
+
+        mv.visitMethodInsn(
+                Opcodes.INVOKEVIRTUAL,
+                "java/lang/StringBuilder",
+                "append",
+                descriptor,
                 false
         );
     }
@@ -516,15 +637,8 @@ public class CodeGenerator {
     }
 
     private void generateMultiplicativeExpression(gemParser.MultiplicativeExpressionContext ctx, MethodVisitor mv) {
-        if (ctx.messageExpression().size() == 1) {
-            generateMessageExpression(ctx.messageExpression(0), mv);
-            return;
-        }
-
-        // First operand
         generateMessageExpression(ctx.messageExpression(0), mv);
 
-        // Process operations left to right
         for (int i = 1; i < ctx.messageExpression().size(); i++) {
             generateMessageExpression(ctx.messageExpression(i), mv);
 
@@ -564,7 +678,47 @@ public class CodeGenerator {
             generateExpression(ctx.expression(), mv);
         } else if (ctx.ID() != null && ctx.LPAREN() != null) {
             // Function call
-            throw new UnsupportedOperationException("Function calls not supported in this version");
+            String functionName = ctx.ID().getText();
+            if (functionName.equals("read_integer") || functionName.equals("read_line")) {
+                // Handle built-in I/O functions
+                // Create a Scanner
+                mv.visitTypeInsn(Opcodes.NEW, "java/util/Scanner");
+                mv.visitInsn(Opcodes.DUP);
+                mv.visitFieldInsn(
+                        Opcodes.GETSTATIC,
+                        "java/lang/System",
+                        "in",
+                        "Ljava/io/InputStream;"
+                );
+                mv.visitMethodInsn(
+                        Opcodes.INVOKESPECIAL,
+                        "java/util/Scanner",
+                        "<init>",
+                        "(Ljava/io/InputStream;)V",
+                        false
+                );
+
+                // Call appropriate method
+                if (functionName.equals("read_line")) {
+                    mv.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "java/util/Scanner",
+                            "nextLine",
+                            "()Ljava/lang/String;",
+                            false
+                    );
+                } else if (functionName.equals("read_integer")) {
+                    mv.visitMethodInsn(
+                            Opcodes.INVOKEVIRTUAL,
+                            "java/util/Scanner",
+                            "nextInt",
+                            "()I",
+                            false
+                    );
+                }
+            } else {
+                throw new UnsupportedOperationException("Function calls not supported in this version");
+            }
         }
     }
 
