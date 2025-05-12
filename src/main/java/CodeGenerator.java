@@ -638,6 +638,10 @@ public class CodeGenerator {
             return;
         }
 
+        // Get types of operands
+        String leftType = getExpressionType(ctx.additiveExpression(0));
+        String rightType = getExpressionType(ctx.additiveExpression(1));
+
         // Generate operands
         generateAdditiveExpression(ctx.additiveExpression(0), mv);
         generateAdditiveExpression(ctx.additiveExpression(1), mv);
@@ -647,14 +651,30 @@ public class CodeGenerator {
         Label trueLabel = new Label();
         Label endLabel = new Label();
 
-        switch (op) {
-            case "<" -> mv.visitJumpInsn(Opcodes.IF_ICMPLT, trueLabel);
-            case ">" -> mv.visitJumpInsn(Opcodes.IF_ICMPGT, trueLabel);
-            case "<=" -> mv.visitJumpInsn(Opcodes.IF_ICMPLE, trueLabel);
-            case ">=" -> mv.visitJumpInsn(Opcodes.IF_ICMPGE, trueLabel);
-            case "==" -> mv.visitJumpInsn(Opcodes.IF_ICMPEQ, trueLabel);
-            case "!=" -> mv.visitJumpInsn(Opcodes.IF_ICMPNE, trueLabel);
-            default -> throw new UnsupportedOperationException("Unsupported comparison operator: " + op);
+        if ("string".equals(leftType) && "string".equals(rightType)) {
+            // String comparison
+            if ("==".equals(op)) {
+                // For string equality, use equals() method
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/String", "equals", "(Ljava/lang/Object;)Z", false);
+                mv.visitJumpInsn(Opcodes.IFNE, trueLabel);
+            } else if ("!=".equals(op)) {
+                // For string inequality, use equals() and negate
+                mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/String", "equals", "(Ljava/lang/Object;)Z", false);
+                mv.visitJumpInsn(Opcodes.IFEQ, trueLabel);
+            } else {
+                throw new UnsupportedOperationException("Unsupported string comparison operator: " + op);
+            }
+        } else {
+            // Integer comparison
+            switch (op) {
+                case "<" -> mv.visitJumpInsn(Opcodes.IF_ICMPLT, trueLabel);
+                case ">" -> mv.visitJumpInsn(Opcodes.IF_ICMPGT, trueLabel);
+                case "<=" -> mv.visitJumpInsn(Opcodes.IF_ICMPLE, trueLabel);
+                case ">=" -> mv.visitJumpInsn(Opcodes.IF_ICMPGE, trueLabel);
+                case "==" -> mv.visitJumpInsn(Opcodes.IF_ICMPEQ, trueLabel);
+                case "!=" -> mv.visitJumpInsn(Opcodes.IF_ICMPNE, trueLabel);
+                default -> throw new UnsupportedOperationException("Unsupported comparison operator: " + op);
+            }
         }
 
         // False path
@@ -874,8 +894,13 @@ public class CodeGenerator {
     }
 
     // Type analysis methods
-    private String getExpressionType(gemParser.ExpressionContext ctx) {
-        return getLogicalExpressionType(ctx.logicalExpression());
+    private String getExpressionType(Object ctx) {
+        if (ctx instanceof gemParser.ExpressionContext) {
+            return getLogicalExpressionType(((gemParser.ExpressionContext) ctx).logicalExpression());
+        } else if (ctx instanceof gemParser.AdditiveExpressionContext) {
+            return getAdditiveExpressionType((gemParser.AdditiveExpressionContext) ctx);
+        }
+        return "unknown";
     }
 
     private String getLogicalExpressionType(gemParser.LogicalExpressionContext ctx) {
@@ -896,14 +921,11 @@ public class CodeGenerator {
     }
 
     private String getAdditiveExpressionType(gemParser.AdditiveExpressionContext ctx) {
-        if (ctx.multiplicativeExpression().size() > 1) {
-            // Check if any operand is a string
-            for (gemParser.MultiplicativeExpressionContext mexpr : ctx.multiplicativeExpression()) {
-                if (getMultiplicativeExpressionType(mexpr).equals("string")) {
-                    return "string";
-                }
+        // Check if any operand is a string
+        for (gemParser.MultiplicativeExpressionContext mexpr : ctx.multiplicativeExpression()) {
+            if ("string".equals(getMultiplicativeExpressionType(mexpr))) {
+                return "string";
             }
-            return getMultiplicativeExpressionType(ctx.multiplicativeExpression(0));
         }
         return getMultiplicativeExpressionType(ctx.multiplicativeExpression(0));
     }

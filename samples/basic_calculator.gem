@@ -5,7 +5,7 @@ start
   string continue_calc = "yes"
 
   while continue_calc == "yes"
-    print "\nEnhanced Calculator"
+    print "Enhanced Calculator"
     print "------------------"
 
     print "Enter first number:"
@@ -14,7 +14,7 @@ start
     print "Enter second number:"
     integer num2 = read_integer()
 
-    print "\nAvailable Operations:"
+    print "Available Operations:"
     print "1. Addition"
     print "2. Subtraction"
     print "3. Multiplication"
@@ -26,7 +26,7 @@ start
     print "9. Minimum"
     print "10. Exit"
 
-    print "\nChoose operation (1-10):"
+    print "Choose operation (1-10):"
     integer choice = read_integer()
     integer result = 0
 
@@ -129,7 +129,7 @@ start
 
     -- Ask if user wants to continue
     if continue_calc != "no"
-      print "\nDo you want to perform another calculation?"
+      print "Do you want to perform another calculation?"
       print "1. Yes"
       print "2. No"
 
