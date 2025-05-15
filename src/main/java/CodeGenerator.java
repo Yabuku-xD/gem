@@ -27,20 +27,17 @@ public class CodeGenerator {
         }
 
         try {
-            // Create class writer
             ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
 
-            // Create the class
             cw.visit(
-                    Opcodes.V20, // Java 20 class version
+                    Opcodes.V20,
                     Opcodes.ACC_PUBLIC,
                     className,
-                    null, // signature
-                    "java/lang/Object", // superclass
-                    null // interfaces
+                    null,
+                    "java/lang/Object",
+                    null
             );
 
-            // Add default constructor
             MethodVisitor constructor = cw.visitMethod(
                     Opcodes.ACC_PUBLIC,
                     "<init>",
@@ -61,7 +58,6 @@ public class CodeGenerator {
             constructor.visitMaxs(1, 1);
             constructor.visitEnd();
 
-            // Add main method
             MethodVisitor mv = cw.visitMethod(
                     Opcodes.ACC_PUBLIC | Opcodes.ACC_STATIC,
                     "main",
@@ -71,20 +67,16 @@ public class CodeGenerator {
             );
             mv.visitCode();
 
-            // Register args parameter
             localVars.put("args", 0);
 
-            // Process the AST - generate main method code
             generateProgram((gemParser.ProgramContext)tree, mv);
 
-            // Exit main method
             mv.visitInsn(Opcodes.RETURN);
             mv.visitMaxs(0, 0); // Will be auto-computed
             mv.visitEnd();
 
             cw.visitEnd();
 
-            // Write the class file
             try (FileOutputStream fos = new FileOutputStream(outputFile)) {
                 fos.write(cw.toByteArray());
             }
@@ -97,12 +89,16 @@ public class CodeGenerator {
     }
 
     private void generateProgram(gemParser.ProgramContext ctx, MethodVisitor mv) {
-        // Skip declarations for now (will be supported in the next assignment)
-
-        // Generate code for statements
         for (gemParser.StatementContext stmt : ctx.statement()) {
             generateStatement(stmt, mv);
         }
+    }
+
+    private void generateBreakStatement(gemParser.BreakStatementContext ctx, MethodVisitor mv) {
+        if (currentBreakLabel == null) {
+            throw new UnsupportedOperationException("Break statement not in a loop");
+        }
+        mv.visitJumpInsn(Opcodes.GOTO, currentBreakLabel);
     }
 
     private void generateStatement(gemParser.StatementContext ctx, MethodVisitor mv) {
@@ -123,18 +119,14 @@ public class CodeGenerator {
         } else if (ctx.readStatement() != null) {
             generateReadStatement(ctx.readStatement(), mv);
         } else if (ctx.expression() != null) {
-            // Evaluate expression and discard result
             generateExpression(ctx.expression(), mv);
-            mv.visitInsn(Opcodes.POP); // Pop the value from the stack
+            mv.visitInsn(Opcodes.POP);
         } else if (ctx.functionCall() != null) {
-            // Special handling for console I/O functions
             String functionName = ctx.functionCall().ID(0).getText();
             if (functionName.equals("read_integer")) {
                 generateIntegerInputWithErrorHandling(mv);
             } else if (functionName.equals("read_line")) {
-                // Create a read statement context or directly implement the read logic here
 
-                // Create a Scanner
                 mv.visitTypeInsn(Opcodes.NEW, "java/util/Scanner");
                 mv.visitInsn(Opcodes.DUP);
                 mv.visitFieldInsn(
@@ -151,7 +143,6 @@ public class CodeGenerator {
                         false
                 );
 
-                // Call appropriate method
                 if (functionName.equals("read_line")) {
                     mv.visitMethodInsn(
                             Opcodes.INVOKEVIRTUAL,
@@ -170,12 +161,12 @@ public class CodeGenerator {
                     );
                 }
             } else {
-                // Other function calls are not supported yet
                 throw new UnsupportedOperationException("Function calls not supported in this version");
             }
-        } else if (ctx.innerFunctionDeclaration() != null ||
-                ctx.returnStatement() != null || ctx.breakStatement() != null) {
+        }  else if (ctx.innerFunctionDeclaration() != null || ctx.returnStatement() != null) {
             throw new UnsupportedOperationException("Functions not supported in this version");
+        } else if (ctx.breakStatement() != null) {
+            generateBreakStatement(ctx.breakStatement(), mv);
         } else {
             throw new UnsupportedOperationException("Unsupported statement type");
         }
@@ -189,16 +180,13 @@ public class CodeGenerator {
         String varName = ctx.ID().getText();
         String typeName = getTypeString(ctx.type());
 
-        // Register the variable
         int varIndex = nextVarIndex++;
         localVars.put(varName, varIndex);
 
-        // Initialize with expression if provided
         if (ctx.expression() != null) {
             generateExpression(ctx.expression(), mv);
             storeVariable(varName, typeName, mv);
         } else {
-            // Default initialization
             switch(typeName) {
                 case "integer", "boolean" -> {
                     mv.visitInsn(Opcodes.ICONST_0);
@@ -231,39 +219,49 @@ public class CodeGenerator {
 
     private void generateIfStatement(gemParser.IfStatementContext ctx, MethodVisitor mv) {
         if (ctx.THEN() != null) {
-            // Single-line if-then form (this part is mostly fine)
             Label endLabel = new Label();
 
-            // Generate condition
             generateExpression(ctx.expression(0), mv);
             mv.visitJumpInsn(Opcodes.IFEQ, endLabel);
 
-            // Generate then statement
-            generateStatement(ctx.statement(0), mv);
+            gemParser.StatementContext thenStmt = ctx.statement(0);
+            if (thenStmt.breakStatement() != null) {
+                if (currentBreakLabel == null) {
+                    throw new UnsupportedOperationException("Break statement not in a loop");
+                }
+                mv.visitJumpInsn(Opcodes.GOTO, currentBreakLabel);
+            } else {
+                generateStatement(thenStmt, mv);
+            }
 
-            // Handle optional else
-            if (ctx.ELSE() != null) {
+            if (ctx.ELSE() != null && ctx.statement().size() > 1) {
                 Label afterElseLabel = new Label();
                 mv.visitJumpInsn(Opcodes.GOTO, afterElseLabel);
                 mv.visitLabel(endLabel);
-                generateStatement(ctx.statement(1), mv);
+
+                gemParser.StatementContext elseStmt = ctx.statement(1);
+                if (elseStmt.breakStatement() != null) {
+                    if (currentBreakLabel == null) {
+                        throw new UnsupportedOperationException("Break statement not in a loop");
+                    }
+                    mv.visitJumpInsn(Opcodes.GOTO, currentBreakLabel);
+                } else {
+                    generateStatement(elseStmt, mv);
+                }
+
                 mv.visitLabel(afterElseLabel);
             } else {
                 mv.visitLabel(endLabel);
             }
         } else {
-            // Multi-line if-then-end form
             Label endLabel = new Label();
 
-            // Save the current variable count - for proper scoping
             int originalVarCount = nextVarIndex;
             Map<String, Integer> originalVars = new HashMap<>(localVars);
 
-            // Process each if/else-if condition with proper branching
             int numExpressions = ctx.expression().size();
             Label[] falseLabels = new Label[numExpressions];
 
-            // Count statements in each branch for accurate mapping
             List<Integer> branchStarts = new ArrayList<>();
             List<Integer> branchEnds = new ArrayList<>();
 
@@ -275,31 +273,25 @@ public class CodeGenerator {
                     currentPos++;
                 } else if (ctx.getChild(i).getText().equals("else") &&
                         (i + 1 < ctx.getChildCount() && !ctx.getChild(i + 1).getText().equals("if"))) {
-                    // This is an 'else' without an 'if' - marks the last branch
                     branchStarts.add(currentPos);
                     break;
                 }
             }
 
-            // Calculate the end of each branch
             for (int i = 0; i < branchStarts.size() - 1; i++) {
                 branchEnds.add(branchStarts.get(i + 1));
             }
             branchEnds.add(ctx.statement().size());
 
-            // Now process each branch with proper statement handling
             for (int i = 0; i < numExpressions; i++) {
-                // Reset variables to original state for each branch
                 nextVarIndex = originalVarCount;
                 localVars = new HashMap<>(originalVars);
 
                 falseLabels[i] = new Label();
 
-                // Generate condition
                 generateExpression(ctx.expression(i), mv);
                 mv.visitJumpInsn(Opcodes.IFEQ, falseLabels[i]);
 
-                // Generate statements for this block using correct indices
                 int startStmt = branchStarts.get(i);
                 int endStmt = branchEnds.get(i);
 
@@ -307,16 +299,12 @@ public class CodeGenerator {
                     generateStatement(ctx.statement(j), mv);
                 }
 
-                // Skip to end when this block is finished
                 mv.visitJumpInsn(Opcodes.GOTO, endLabel);
 
-                // Add false label for this condition
                 mv.visitLabel(falseLabels[i]);
             }
 
-            // Final else block (if exists)
             if (ctx.ELSE() != null && branchStarts.size() > numExpressions) {
-                // Reset variables to original state for else branch
                 nextVarIndex = originalVarCount;
                 localVars = new HashMap<>(originalVars);
 
@@ -328,7 +316,6 @@ public class CodeGenerator {
                 }
             }
 
-            // Restore original variables after the entire if statement
             nextVarIndex = originalVarCount;
             localVars = originalVars;
 
@@ -341,10 +328,8 @@ public class CodeGenerator {
         int varIndex = nextVarIndex++;
         localVars.put(loopVar, varIndex);
 
-        // Get and store the variable type from the semantic analyzer
         String loopVarType = semanticAnalyzer.getVariableType(loopVar);
         if (loopVarType == null) {
-            // For loop variables are always integers in Gem language
             loopVarType = "integer";
         }
 
@@ -352,77 +337,72 @@ public class CodeGenerator {
             definedVariables.put(loopVar, loopVarType);
         }
 
-        // Loop control labels
         Label loopStart = new Label();
         Label loopEnd = new Label();
 
-        // Initialize counter
+        Label prevBreakLabel = currentBreakLabel;
+        currentBreakLabel = loopEnd;
+
         generateExpression(ctx.expression(0), mv);
         mv.visitVarInsn(Opcodes.ISTORE, varIndex);
 
-        // Loop condition
         mv.visitLabel(loopStart);
         mv.visitVarInsn(Opcodes.ILOAD, varIndex);
         generateExpression(ctx.expression(1), mv);
         mv.visitJumpInsn(Opcodes.IF_ICMPGT, loopEnd);
 
-        // Loop body
         for (gemParser.StatementContext stmt : ctx.statement()) {
             generateStatement(stmt, mv);
         }
 
-        // Increment counter
         mv.visitIincInsn(varIndex, 1);
         mv.visitJumpInsn(Opcodes.GOTO, loopStart);
 
-        // End of loop
         mv.visitLabel(loopEnd);
+        currentBreakLabel = prevBreakLabel;
     }
 
     private void generateWhileLoop(gemParser.WhileLoopContext ctx, MethodVisitor mv) {
-        // Loop control labels
         Label loopStart = new Label();
         Label loopEnd = new Label();
 
-        // Loop condition
+        Label prevBreakLabel = currentBreakLabel;
+        currentBreakLabel = loopEnd;
+
         mv.visitLabel(loopStart);
         generateExpression(ctx.expression(), mv);
         mv.visitJumpInsn(Opcodes.IFEQ, loopEnd);
 
-        // Loop body
         for (gemParser.StatementContext stmt : ctx.statement()) {
             generateStatement(stmt, mv);
         }
 
-        // Jump back to condition
         mv.visitJumpInsn(Opcodes.GOTO, loopStart);
 
-        // End of loop
         mv.visitLabel(loopEnd);
+        currentBreakLabel = prevBreakLabel;
     }
 
     private void generateLoop(gemParser.LoopContext ctx, MethodVisitor mv) {
-        // Loop control labels
         Label loopStart = new Label();
-        Label loopEnd = new Label(); // For future break support
+        Label loopEnd = new Label();
 
-        // Start of loop
+        Label prevBreakLabel = currentBreakLabel;
+        currentBreakLabel = loopEnd;
+
         mv.visitLabel(loopStart);
 
-        // Loop body
         for (gemParser.StatementContext stmt : ctx.statement()) {
             generateStatement(stmt, mv);
         }
 
-        // Jump back to start
         mv.visitJumpInsn(Opcodes.GOTO, loopStart);
 
-        // End of loop (for break statements)
         mv.visitLabel(loopEnd);
+        currentBreakLabel = prevBreakLabel;
     }
 
     private void generatePrintStatement(gemParser.PrintStatementContext ctx, MethodVisitor mv) {
-        // Get System.out
         mv.visitFieldInsn(
                 Opcodes.GETSTATIC,
                 "java/lang/System",
@@ -430,17 +410,13 @@ public class CodeGenerator {
                 "Ljava/io/PrintStream;"
         );
 
-        // Generate the expression
         String exprType = getExpressionType(ctx.expression());
 
-        // Check if it's a string concatenation operation
         if (isConcatenation(ctx.expression())) {
             generateStringConcatenation(ctx.expression(), mv);
         } else {
-            // Generate a normal expression
             generateExpression(ctx.expression(), mv);
 
-            // Convert primitive types to String if needed
             if (!exprType.equals("string")) {
                 switch(exprType) {
                     case "integer" -> mv.visitMethodInsn(
@@ -469,7 +445,6 @@ public class CodeGenerator {
             }
         }
 
-        // Call println
         mv.visitMethodInsn(
                 Opcodes.INVOKEVIRTUAL,
                 "java/io/PrintStream",
@@ -479,18 +454,13 @@ public class CodeGenerator {
         );
     }
 
-    // Helper method to check if an expression is a string concatenation
     private boolean isConcatenation(gemParser.ExpressionContext ctx) {
-        // Get the first comparison expression
         gemParser.ComparisonExpressionContext compCtx = ctx.logicalExpression().comparisonExpression(0);
-        // Get the first additive expression
         gemParser.AdditiveExpressionContext addCtx = compCtx.additiveExpression(0);
         return addCtx.multiplicativeExpression().size() > 1 && addCtx.PLUS().size() > 0;
     }
 
-    // Method to generate string concatenation
     private void generateStringConcatenation(gemParser.ExpressionContext ctx, MethodVisitor mv) {
-        // Create a StringBuilder
         mv.visitTypeInsn(Opcodes.NEW, "java/lang/StringBuilder");
         mv.visitInsn(Opcodes.DUP);
         mv.visitMethodInsn(
@@ -501,27 +471,21 @@ public class CodeGenerator {
                 false
         );
 
-        // Get the additive expression containing the concatenations
         gemParser.ComparisonExpressionContext compCtx = ctx.logicalExpression().comparisonExpression(0);
         gemParser.AdditiveExpressionContext addCtx = compCtx.additiveExpression(0);
 
-        // Generate code for the first operand
         String firstType = getMultiplicativeExpressionType(addCtx.multiplicativeExpression(0));
         generateMultiplicativeExpression(addCtx.multiplicativeExpression(0), mv);
 
-        // Convert to string if needed and append
         appendToStringBuilder(mv, firstType);
 
-        // Process the remaining operands
         for (int i = 1; i < addCtx.multiplicativeExpression().size(); i++) {
             String opType = getMultiplicativeExpressionType(addCtx.multiplicativeExpression(i));
             generateMultiplicativeExpression(addCtx.multiplicativeExpression(i), mv);
 
-            // Convert to string if needed and append
             appendToStringBuilder(mv, opType);
         }
 
-        // Convert StringBuilder to String
         mv.visitMethodInsn(
                 Opcodes.INVOKEVIRTUAL,
                 "java/lang/StringBuilder",
@@ -531,9 +495,7 @@ public class CodeGenerator {
         );
     }
 
-    // Helper method to append a value to StringBuilder
     private void appendToStringBuilder(MethodVisitor mv, String type) {
-        // Append method signature depends on the type
         String descriptor;
         switch (type) {
             case "integer" -> descriptor = "(I)Ljava/lang/StringBuilder;";
@@ -558,7 +520,6 @@ public class CodeGenerator {
         if (funcName.equals("read_integer")) {
             generateIntegerInputWithErrorHandling(mv);
         } else if (funcName.equals("read_line")) {
-            // Original code for read_line
             mv.visitTypeInsn(Opcodes.NEW, "java/util/Scanner");
             mv.visitInsn(Opcodes.DUP);
             mv.visitFieldInsn(
@@ -596,42 +557,33 @@ public class CodeGenerator {
             return;
         }
 
-        // First operand
         generateComparisonExpression(ctx.comparisonExpression(0), mv);
 
         for (int i = 0; i < ctx.getChildCount() / 2; i++) {
             String operator = ctx.getChild(i * 2 + 1).getText();
 
             if (operator.equals("and")) {
-                // Short-circuit AND
                 Label falseLabel = new Label();
                 Label endLabel = new Label();
 
-                // Check if first operand is false
                 mv.visitJumpInsn(Opcodes.IFEQ, falseLabel);
 
-                // Evaluate second operand
                 generateComparisonExpression(ctx.comparisonExpression(i + 1), mv);
                 mv.visitJumpInsn(Opcodes.GOTO, endLabel);
 
-                // First operand was false, result is false
                 mv.visitLabel(falseLabel);
                 mv.visitInsn(Opcodes.ICONST_0);
 
                 mv.visitLabel(endLabel);
             } else if (operator.equals("or")) {
-                // Short-circuit OR
                 Label trueLabel = new Label();
                 Label endLabel = new Label();
 
-                // Check if first operand is true
                 mv.visitJumpInsn(Opcodes.IFNE, trueLabel);
 
-                // Evaluate second operand
                 generateComparisonExpression(ctx.comparisonExpression(i + 1), mv);
                 mv.visitJumpInsn(Opcodes.GOTO, endLabel);
 
-                // First operand was true, result is true
                 mv.visitLabel(trueLabel);
                 mv.visitInsn(Opcodes.ICONST_1);
 
@@ -646,34 +598,27 @@ public class CodeGenerator {
             return;
         }
 
-        // Get types of operands
         String leftType = getExpressionType(ctx.additiveExpression(0));
         String rightType = getExpressionType(ctx.additiveExpression(1));
 
-        // Generate operands
         generateAdditiveExpression(ctx.additiveExpression(0), mv);
         generateAdditiveExpression(ctx.additiveExpression(1), mv);
 
-        // Compare based on operator
         String op = ctx.getChild(1).getText();
         Label trueLabel = new Label();
         Label endLabel = new Label();
 
         if ("string".equals(leftType) && "string".equals(rightType)) {
-            // String comparison
             if ("==".equals(op)) {
-                // For string equality, use equals() method
                 mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/String", "equals", "(Ljava/lang/Object;)Z", false);
                 mv.visitJumpInsn(Opcodes.IFNE, trueLabel);
             } else if ("!=".equals(op)) {
-                // For string inequality, use equals() and negate
                 mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/String", "equals", "(Ljava/lang/Object;)Z", false);
                 mv.visitJumpInsn(Opcodes.IFEQ, trueLabel);
             } else {
                 throw new UnsupportedOperationException("Unsupported string comparison operator: " + op);
             }
         } else {
-            // Integer comparison
             switch (op) {
                 case "<" -> mv.visitJumpInsn(Opcodes.IF_ICMPLT, trueLabel);
                 case ">" -> mv.visitJumpInsn(Opcodes.IF_ICMPGT, trueLabel);
@@ -685,11 +630,9 @@ public class CodeGenerator {
             }
         }
 
-        // False path
         mv.visitInsn(Opcodes.ICONST_0);
         mv.visitJumpInsn(Opcodes.GOTO, endLabel);
 
-        // True path
         mv.visitLabel(trueLabel);
         mv.visitInsn(Opcodes.ICONST_1);
 
@@ -702,10 +645,8 @@ public class CodeGenerator {
             return;
         }
 
-        // First operand
         generateMultiplicativeExpression(ctx.multiplicativeExpression(0), mv);
 
-        // Process operations left to right
         for (int i = 1; i < ctx.multiplicativeExpression().size(); i++) {
             generateMultiplicativeExpression(ctx.multiplicativeExpression(i), mv);
 
@@ -748,24 +689,18 @@ public class CodeGenerator {
 
     private void generatePrimaryExpression(gemParser.PrimaryExpressionContext ctx, MethodVisitor mv) {
         if (ctx.ID() != null && ctx.LPAREN() == null) {
-            // Variable reference
             String varName = ctx.ID().getText();
             String varType = semanticAnalyzer.getVariableType(varName);
             loadVariable(varName, varType, mv);
         } else if (ctx.literal() != null) {
-            // Literal value
             generateLiteral(ctx.literal(), mv);
         } else if (ctx.expression() != null) {
-            // Parenthesized expression
             generateExpression(ctx.expression(), mv);
         } else if (ctx.ID() != null && ctx.LPAREN() != null) {
-            // Function call
             String functionName = ctx.ID().getText();
             if (functionName.equals("read_integer")) {
                 generateIntegerInputWithErrorHandling(mv);
             } else if (functionName.equals("read_line")) {
-                // Handle built-in I/O functions
-                // Create a Scanner
                 mv.visitTypeInsn(Opcodes.NEW, "java/util/Scanner");
                 mv.visitInsn(Opcodes.DUP);
                 mv.visitFieldInsn(
@@ -782,7 +717,6 @@ public class CodeGenerator {
                         false
                 );
 
-                // Call appropriate method
                 if (functionName.equals("read_line")) {
                     mv.visitMethodInsn(
                             Opcodes.INVOKEVIRTUAL,
@@ -840,7 +774,6 @@ public class CodeGenerator {
             }
         } else if (ctx.STRING_LITERAL() != null) {
             String value = ctx.STRING_LITERAL().getText();
-            // Remove quotes
             value = value.substring(1, value.length() - 1);
             mv.visitLdcInsn(value);
         } else if (ctx.BOOLEAN_LITERAL() != null) {
@@ -910,7 +843,6 @@ public class CodeGenerator {
         return null;
     }
 
-    // Type analysis methods
     private String getExpressionType(Object ctx) {
         if (ctx instanceof gemParser.ExpressionContext) {
             return getLogicalExpressionType(((gemParser.ExpressionContext) ctx).logicalExpression());
@@ -938,7 +870,6 @@ public class CodeGenerator {
     }
 
     private String getAdditiveExpressionType(gemParser.AdditiveExpressionContext ctx) {
-        // Check if any operand is a string
         for (gemParser.MultiplicativeExpressionContext mexpr : ctx.multiplicativeExpression()) {
             if ("string".equals(getMultiplicativeExpressionType(mexpr))) {
                 return "string";
@@ -948,22 +879,18 @@ public class CodeGenerator {
     }
 
     private String getMultiplicativeExpressionType(gemParser.MultiplicativeExpressionContext ctx) {
-        // If there's only one message expression, return its type
         if (ctx.messageExpression().size() == 1) {
             return getMessageExpressionType(ctx.messageExpression(0));
         }
 
-        // Otherwise, determine the result type based on the operands
         String leftType = getMessageExpressionType(ctx.messageExpression(0));
         for (int i = 1; i < ctx.messageExpression().size(); i++) {
             String rightType = getMessageExpressionType(ctx.messageExpression(i));
 
-            // If either type is "string", the result is a string
             if (leftType.equals("string") || rightType.equals("string")) {
                 return "string";
             }
 
-            // If either type is "number", the result is a number
             if (leftType.equals("number") || rightType.equals("number")) {
                 return "number";
             }
@@ -1010,14 +937,12 @@ public class CodeGenerator {
     }
 
     private void generateIntegerInputWithErrorHandling(MethodVisitor mv) {
-        // Create labels for the try-catch block and loop
         Label loopStart = new Label();
         Label loopEnd = new Label();
         Label tryStart = new Label();
         Label tryEnd = new Label();
         Label catchHandler = new Label();
 
-        // Create a Scanner object
         mv.visitTypeInsn(Opcodes.NEW, "java/util/Scanner");
         mv.visitInsn(Opcodes.DUP);
         mv.visitFieldInsn(
@@ -1034,21 +959,17 @@ public class CodeGenerator {
                 false
         );
 
-        // Store the scanner in a local variable
         int scannerVarIndex = nextVarIndex++;
         mv.visitVarInsn(Opcodes.ASTORE, scannerVarIndex);
 
-        // Begin the loop
         mv.visitLabel(loopStart);
 
-        // Try block
         mv.visitTryCatchBlock(tryStart, tryEnd, catchHandler, "java/util/InputMismatchException");
 
         mv.visitLabel(tryStart);
-        // Load the scanner object
+
         mv.visitVarInsn(Opcodes.ALOAD, scannerVarIndex);
 
-        // Call nextInt()
         mv.visitMethodInsn(
                 Opcodes.INVOKEVIRTUAL,
                 "java/util/Scanner",
@@ -1057,18 +978,14 @@ public class CodeGenerator {
                 false
         );
 
-        // If we get here, the input was valid, so break out of the loop
         mv.visitJumpInsn(Opcodes.GOTO, loopEnd);
         mv.visitLabel(tryEnd);
 
-        // Catch block for InputMismatchException
         mv.visitLabel(catchHandler);
 
-        // Store the exception in a local variable (to prevent stack issues)
         int exceptionVarIndex = nextVarIndex++;
         mv.visitVarInsn(Opcodes.ASTORE, exceptionVarIndex);
 
-        // Print error message
         mv.visitFieldInsn(
                 Opcodes.GETSTATIC,
                 "java/lang/System",
@@ -1084,7 +1001,6 @@ public class CodeGenerator {
                 false
         );
 
-        // Clear the scanner buffer
         mv.visitVarInsn(Opcodes.ALOAD, scannerVarIndex);
         mv.visitMethodInsn(
                 Opcodes.INVOKEVIRTUAL,
@@ -1093,12 +1009,10 @@ public class CodeGenerator {
                 "()Ljava/lang/String;",
                 false
         );
-        mv.visitInsn(Opcodes.POP); // Discard the result
+        mv.visitInsn(Opcodes.POP);
 
-        // Jump back to start of the loop
         mv.visitJumpInsn(Opcodes.GOTO, loopStart);
 
-        // End of the loop
         mv.visitLabel(loopEnd);
     }
 }

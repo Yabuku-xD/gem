@@ -4,44 +4,35 @@ import java.util.*;
 public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
     private SymbolTable globalScope = new SymbolTable();
     private List<CompilationError> errors = new ArrayList<>();
-
     private Map<String, SymbolTable> typeTables = new HashMap<>();
     private Map<String, SymbolTable> functionTables = new HashMap<>();
-
     private Map<String, String> definedVariables = new HashMap<>();
     public Map<String, String> getAllVariableTypes() {
         return new HashMap<>(definedVariables);
     }
 
     public GemSemanticAnalyzer() {
-        // Initialize with built-in types
         globalScope.define("integer", "type", "integer", 0, 0);
         globalScope.define("number", "type", "number", 0, 0);
         globalScope.define("string", "type", "string", 0, 0);
         globalScope.define("boolean", "type", "boolean", 0, 0);
         globalScope.define("char", "type", "char", 0, 0);
-
-        // Initialize with built-in functions
         globalScope.define("read_integer", "function", "integer", 0, 0);
         globalScope.define("read_line", "function", "string", 0, 0);
     }
 
     public String analyzeTree(ParseTree tree) {
-        // First pass: Register all types and function signatures
         if (tree instanceof gemParser.ProgramContext) {
             gemParser.ProgramContext ctx = (gemParser.ProgramContext) tree;
 
-            // Register declarations
             for (gemParser.DeclarationContext decl : ctx.declaration()) {
                 registerDeclaration(decl);
             }
 
-            // Analyze declarations
             for (gemParser.DeclarationContext decl : ctx.declaration()) {
                 visitDeclaration(decl);
             }
 
-            // Analyze statements
             for (gemParser.StatementContext stmt : ctx.statement()) {
                 visit(stmt);
             }
@@ -61,13 +52,11 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
 
     @Override
     public String visitDeclaration(gemParser.DeclarationContext decl) {
-        // Implementation details for analyzing declarations
         return null;
     }
 
     @Override
     public String visitVariableDeclaration(gemParser.VariableDeclarationContext ctx) {
-        // Check variable type
         String typeName = null;
 
         if (ctx.type() != null) {
@@ -99,7 +88,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             }
         }
 
-        // Check initialization value if present
         if (ctx.expression() != null) {
             String exprType = getExpressionType(ctx.expression());
             if (exprType != null && typeName != null) {
@@ -112,7 +100,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             }
         }
 
-        // Register the variable in current scope
         String varName = ctx.ID().getText();
         definedVariables.put(varName, typeName);
 
@@ -123,7 +110,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
     public String visitAssignment(gemParser.AssignmentContext ctx) {
         String targetType = null;
 
-        // Check if variable is defined
         if (ctx.ID().size() > 0) {
             String varName = ctx.ID(0).getText();
             if (!definedVariables.containsKey(varName)) {
@@ -137,10 +123,8 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             targetType = definedVariables.get(varName);
         }
 
-        // Check expression type
         String exprType = getExpressionType(ctx.expression(0));
 
-        // Check type compatibility
         if (targetType != null && exprType != null) {
             if (!isTypeCompatible(targetType, exprType)) {
                 errors.add(new TypeMismatchError(
@@ -156,7 +140,7 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
     @Override
     public String visitPrimaryExpression(gemParser.PrimaryExpressionContext ctx) {
         if (ctx.ID() != null && ctx.LPAREN() == null) {
-            // Variable reference
+
             String varName = ctx.ID().getText();
             if (!definedVariables.containsKey(varName)) {
                 errors.add(new UndefinedVariableError(
@@ -167,16 +151,15 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             }
             return definedVariables.get(varName);
         } else if (ctx.literal() != null) {
-            // Literal value
+
             return visitLiteral(ctx.literal());
         } else if (ctx.expression() != null) {
-            // Parenthesized expression
+
             return getExpressionType(ctx.expression());
         } else if (ctx.ID() != null && ctx.LPAREN() != null) {
-            // Function call
+
             String funcName = ctx.ID().getText();
 
-            // Check for built-in functions
             if (funcName.equals("read_integer")) {
                 return "integer";
             } else if (funcName.equals("read_line")) {
@@ -189,7 +172,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
                 return "string[]";
             }
 
-            // Regular function call
             Symbol functionSymbol = globalScope.lookup(funcName);
             if (functionSymbol == null) {
                 errors.add(new UndefinedVariableError(
@@ -243,10 +225,7 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
 
     @Override
     public String visitLogicalExpression(gemParser.LogicalExpressionContext ctx) {
-        // Only check for boolean operands if there are actually logical operators present
-        // We can determine this by checking if there are multiple comparison expressions
         if (ctx.comparisonExpression().size() > 1) {
-            // Check that both operands are boolean
             for (gemParser.ComparisonExpressionContext expr : ctx.comparisonExpression()) {
                 String type = visitComparisonExpression(expr);
                 if (type != null && !type.equals("boolean")) {
@@ -265,7 +244,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
     public String visitComparisonExpression(gemParser.ComparisonExpressionContext ctx) {
         if (ctx.LT() != null || ctx.GT() != null || ctx.LE() != null ||
                 ctx.GE() != null || ctx.EQ() != null || ctx.NEQ() != null) {
-            // Comparison operators result in boolean
             return "boolean";
         }
         return visitAdditiveExpression(ctx.additiveExpression(0));
@@ -277,8 +255,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             String leftType = visitMultiplicativeExpression(ctx.multiplicativeExpression(0));
             for (int i = 1; i < ctx.multiplicativeExpression().size(); i++) {
                 String rightType = visitMultiplicativeExpression(ctx.multiplicativeExpression(i));
-
-                // Check type compatibility for addition/subtraction
                 if (leftType != null && rightType != null) {
                     if (!isAdditiveCompatible(leftType, rightType)) {
                         errors.add(new TypeMismatchError(
@@ -288,13 +264,11 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
                     }
                 }
 
-                // String concatenation results in string
                 if (leftType != null && leftType.equals("string") ||
                         rightType != null && rightType.equals("string")) {
                     return "string";
                 }
 
-                // Numeric operations result in number or integer
                 if (leftType != null && leftType.equals("number") ||
                         rightType != null && rightType.equals("number")) {
                     return "number";
@@ -306,11 +280,9 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
     }
 
     private boolean isAdditiveCompatible(String leftType, String rightType) {
-        // String concatenation
         if (leftType.equals("string") || rightType.equals("string"))
             return true;
 
-        // Numeric operations
         if ((leftType.equals("integer") || leftType.equals("number")) &&
                 (rightType.equals("integer") || rightType.equals("number")))
             return true;
@@ -323,21 +295,17 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
         int line = ctx.ID(0).getSymbol().getLine();
         int column = ctx.ID(0).getSymbol().getCharPositionInLine();
 
-        // Check for duplicate type definition
         if (globalScope.getLocal(name) != null) {
             errors.add(new DuplicateTypeError(
                     "Duplicate type definition: " + name, line, column));
             return;
         }
 
-        // Register the struct
         globalScope.define(name, "struct", name, line, column);
 
-        // Create symbol table for struct
         SymbolTable structTable = new SymbolTable(globalScope);
         typeTables.put(name, structTable);
 
-        // Handle inheritance if specified
         if (ctx.ID().size() > 1) {
             String parentName = ctx.ID(1).getText();
             if (globalScope.lookup(parentName) == null) {
@@ -348,14 +316,12 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             }
         }
 
-        // Register fields
         for (gemParser.FieldContext field : ctx.field()) {
             String fieldType = getTypeText(field.type());
             String fieldName = field.ID().getText();
             int fieldLine = field.ID().getSymbol().getLine();
             int fieldColumn = field.ID().getSymbol().getCharPositionInLine();
 
-            // Check field type
             if (!isTypeValid(fieldType)) {
                 errors.add(new UnresolvedTypeError(
                         "Undefined type: " + fieldType + " for field " + fieldName,
@@ -363,7 +329,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
                         field.type().getStart().getCharPositionInLine()));
             }
 
-            // Register field
             structTable.define(fieldName, "field", fieldType, fieldLine, fieldColumn);
         }
     }
@@ -373,21 +338,17 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
         int line = ctx.ID(0).getSymbol().getLine();
         int column = ctx.ID(0).getSymbol().getCharPositionInLine();
 
-        // Check for duplicate type definition
         if (globalScope.getLocal(name) != null) {
             errors.add(new DuplicateTypeError(
                     "Duplicate type definition: " + name, line, column));
             return;
         }
 
-        // Register the class
         globalScope.define(name, "class", name, line, column);
 
-        // Create symbol table for class
         SymbolTable classTable = new SymbolTable(globalScope);
         typeTables.put(name, classTable);
 
-        // Handle inheritance if specified
         if (ctx.ID().size() > 1) {
             String parentName = ctx.ID(1).getText();
             if (globalScope.lookup(parentName) == null) {
@@ -398,14 +359,12 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             }
         }
 
-        // Register fields
         for (gemParser.FieldContext field : ctx.field()) {
             String fieldType = getTypeText(field.type());
             String fieldName = field.ID().getText();
             int fieldLine = field.ID().getSymbol().getLine();
             int fieldColumn = field.ID().getSymbol().getCharPositionInLine();
 
-            // Check field type
             if (!isTypeValid(fieldType)) {
                 errors.add(new UnresolvedTypeError(
                         "Undefined type: " + fieldType + " for field " + fieldName,
@@ -413,22 +372,18 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
                         field.type().getStart().getCharPositionInLine()));
             }
 
-            // Register field
             classTable.define(fieldName, "field", fieldType, fieldLine, fieldColumn);
         }
 
-        // Register methods
         for (gemParser.FunctionDeclarationContext method : ctx.functionDeclaration()) {
             String methodName = method.ID().getText();
             int methodLine = method.ID().getSymbol().getLine();
             int methodColumn = method.ID().getSymbol().getCharPositionInLine();
 
-            // Get return type if specified
             String returnType = null;
             if (method.type() != null) {
                 returnType = getTypeText(method.type());
 
-                // Check return type
                 if (!isTypeValid(returnType)) {
                     errors.add(new UnresolvedTypeError(
                             "Undefined return type: " + returnType + " for method " + methodName,
@@ -437,15 +392,12 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
                 }
             }
 
-            // Register method in class symbol table
             classTable.define(methodName, "method", returnType, methodLine, methodColumn);
 
-            // Create method symbol table
             String fullMethodName = name + "." + methodName;
             SymbolTable methodTable = new SymbolTable(classTable);
             functionTables.put(fullMethodName, methodTable);
 
-            // Register method parameters
             if (method.parameterList() != null) {
                 for (gemParser.ParameterContext param : method.parameterList().parameter()) {
                     String paramType = getTypeText(param.type());
@@ -454,7 +406,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
                     int paramLine = param.ID().getSymbol().getLine();
                     int paramColumn = param.ID().getSymbol().getCharPositionInLine();
 
-                    // Check parameter type
                     if (!isTypeValid(paramType)) {
                         errors.add(new UnresolvedTypeError(
                                 "Undefined parameter type: " + paramType + " for parameter " + paramName,
@@ -462,7 +413,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
                                 param.type().getStart().getCharPositionInLine()));
                     }
 
-                    // Register parameter
                     methodTable.define(paramName, isRef ? "ref_parameter" : "parameter",
                             paramType, paramLine, paramColumn);
                 }
@@ -475,19 +425,16 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
         int line = ctx.ID().getSymbol().getLine();
         int column = ctx.ID().getSymbol().getCharPositionInLine();
 
-        // Check for duplicate function definition
         if (globalScope.getLocal(name) != null) {
             errors.add(new DuplicateTypeError(
                     "Duplicate function definition: " + name, line, column));
             return;
         }
 
-        // Get return type if specified
         String returnType = null;
         if (ctx.type() != null) {
             returnType = getTypeText(ctx.type());
 
-            // Check return type
             if (!isTypeValid(returnType)) {
                 errors.add(new UnresolvedTypeError(
                         "Undefined return type: " + returnType + " for function " + name,
@@ -496,14 +443,11 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             }
         }
 
-        // Register function
         globalScope.define(name, "function", returnType, line, column);
 
-        // Create function symbol table
         SymbolTable functionTable = new SymbolTable(globalScope);
         functionTables.put(name, functionTable);
 
-        // Register parameters
         if (ctx.parameterList() != null) {
             for (gemParser.ParameterContext param : ctx.parameterList().parameter()) {
                 String paramType = getTypeText(param.type());
@@ -512,7 +456,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
                 int paramLine = param.ID().getSymbol().getLine();
                 int paramColumn = param.ID().getSymbol().getCharPositionInLine();
 
-                // Check parameter type
                 if (!isTypeValid(paramType)) {
                     errors.add(new UnresolvedTypeError(
                             "Undefined parameter type: " + paramType + " for parameter " + paramName,
@@ -520,7 +463,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
                             param.type().getStart().getCharPositionInLine()));
                 }
 
-                // Register parameter
                 functionTable.define(paramName, isRef ? "ref_parameter" : "parameter",
                         paramType, paramLine, paramColumn);
             }
@@ -550,33 +492,27 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
     private boolean isTypeValid(String typeName) {
         if (typeName == null) return false;
 
-        // Built-in types
         if (typeName.equals("integer") || typeName.equals("number") ||
                 typeName.equals("string") || typeName.equals("boolean") ||
                 typeName.equals("char")) {
             return true;
         }
 
-        // Array types
         if (typeName.endsWith("[]")) {
             String baseType = typeName.substring(0, typeName.length() - 2);
             return isTypeValid(baseType);
         }
 
-        // User-defined types - check if registered in global scope
         return globalScope.lookup(typeName) != null;
     }
 
     private boolean isTypeCompatible(String targetType, String sourceType) {
         if (targetType == null || sourceType == null) return false;
 
-        // Same type
         if (targetType.equals(sourceType)) return true;
 
-        // Special case: integer can be assigned to number
         if (targetType.equals("number") && sourceType.equals("integer")) return true;
 
-        // Array types
         if (targetType.endsWith("[]") && sourceType.endsWith("[]")) {
             String targetBaseType = targetType.substring(0, targetType.length() - 2);
             String sourceBaseType = sourceType.substring(0, sourceType.length() - 2);
