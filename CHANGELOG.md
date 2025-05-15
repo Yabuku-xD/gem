@@ -1,4 +1,10 @@
-# Updated CHANGELOG.md - Apr 30, 2025
+# Updated CHANGELOG.md - May 14, 2025
+
+### Break Statement Implementation
+- Added support for break statements in all loop types (for, while, infinite loop)
+- Fixed handling of break statements within if-then constructs
+- Implemented proper tracking of nested loop contexts for break statement targets
+- Enhanced compiler to generate correct bytecode for loop exit points
 
 ### Compiler Implementation
 - Implemented a complete compiler pipeline with lexical, syntax, and semantic analysis

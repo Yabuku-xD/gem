@@ -11,10 +11,9 @@ public class CodeGenerator {
     private GemSemanticAnalyzer semanticAnalyzer;
     private Map<String, Integer> localVars = new HashMap<>();
     private Map<String, String> definedVariables = new HashMap<>();
-    private int nextVarIndex = 1; // 0 is reserved for 'this' in instance methods
+    private int nextVarIndex = 1;
     private Label currentBreakLabel = null;
 
-    // Constructor
     public CodeGenerator() {
         this.definedVariables = new HashMap<>();
     }

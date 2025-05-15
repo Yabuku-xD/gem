@@ -18,12 +18,16 @@ The compiler accepts a source file and a flag to indicate at which stage to stop
 `java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar <source_file> --stop-at <lexing|parsing|semantic>`
 <br> For example:
 `java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/hello.gem --stop-at lexing`
+<br> To run a compiled program:
+`java <ClassName>`
+<br> <i>(where <ClassName> is the name of your Gem file without the .gem extension.)</i>
 
 ## Compiler Stages:
 
 - Lexing: Performs lexical analysis and outputs the tokens found in the source code.
 - Parsing: Performs parsing and outputs the parse tree structure.
 - Semantic: Performs semantic analysis and outputs symbol tables and any errors.
+- Code Generation: Generates Java bytecode that can be executed on the JVM.
 
 ## Error Detection:
 The compiler can detect various types of errors:
@@ -35,23 +39,27 @@ The compiler can detect various types of errors:
   - Unresolved type references.
   - Usage of variables before definition.
   - Type mismatches in expressions and assignments.
-### Test duplicate type definitions
-`java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/duplicate_types.gem --stop-at semantic`
+  - Boolean operands in logical expressions.
 
-### Test unresolved type references
-`java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/unresolved_types.gem --stop-at semantic`
+```
+# Test duplicate type definitions
+java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/duplicate_types.gem --stop-at semantic
 
-### Test variables used before definition
-`java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/undefined_var.gem --stop-at semantic`
+# Test unresolved type references
+java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/unresolved_types.gem --stop-at semantic
 
-### Test type mismatches
-`java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/type_mismatch.gem --stop-at semantic`
+# Test variables used before definition
+java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/undefined_var.gem --stop-at semantic
 
-### Test invalid syntax
-`java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/invalid_syntax.gem --stop-at parsing`
+# Test type mismatches
+java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/type_mismatch.gem --stop-at semantic
 
-### Test invalid tokens
-`java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/invalid_tokens.gem --stop-at lexing`
+# Test invalid syntax
+java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/invalid_syntax.gem --stop-at parsing
+
+# Test invalid tokens
+java -jar build/libs/GemLang-1.0-SNAPSHOT-uber.jar samples/errors/invalid_tokens.gem --stop-at lexing
+```
 
 ### Expected Output:
 ```Global Scope:
@@ -94,6 +102,7 @@ Use `--[ ... ]--` for multi line comments:
 - `integer` (for whole numbers specifically)
 ### Character data type:
 - `char` type for single characters
+- `string` for text
 ### Literals:
 - Integer: 42, -7
 - Float: 3.14, -0.5
@@ -108,8 +117,13 @@ Use `--[ ... ]--` for multi line comments:
 - Each statement on a new line
 - No special terminator needed
 ### Conditionals:
-- Use if, else if, else with end if to close
-- One-line conditionals use then for simple cases
+- Use `if`, `else if`, `else` with `end if` to close
+- One-line conditionals use `then` for simple cases
+### Loops and Control Flow:
+- `for` loops for counted iterations
+- `while` loops for condition-based iteration
+- Infinite `loop` with `break` to exit
+- `break` can be used in any loop to exit early
 ### Parameter passing:
 - Default is pass-by-value
 - Use ref keyword for pass-by-reference
@@ -123,7 +137,7 @@ Use `--[ ... ]--` for multi line comments:
 -- Expected output: "Hello, World!"
 
 start
-  print "Hello, World!"
+    print "Hello, World!"
 finish
 ```
 
@@ -135,18 +149,18 @@ finish
 -- Name: John
 -- Age: 30
 -- Height: 1.85
--- Is a student: yes
+-- Is a student: true
 
 start
-  string name = "John"
-  integer age = 30
-  number height = 1.85
-  boolean is_student = yes
-  
-  print "Name: " + name
-  print "Age: " + age
-  print "Height: " + height
-  print "Is a student: " + is_student
+    string name = "John"
+    integer age = 30
+    number height = 1.85
+    boolean is_student = yes
+
+    print "Name: " + name
+    print "Age: " + age
+    print "Height: " + height
+    print "Is a student: " + is_student
 finish
 ```
 
@@ -159,19 +173,19 @@ finish
 -- Greeting: Hello, Alice!
 
 function add(integer a, integer b) returns integer
-  return a + b
+    return a + b
 end function
 
 function greet(string name) returns string
-  return "Hello, " + name + "!"
+    return "Hello, " + name + "!"
 end function
 
 start
-  integer result = add(3, 5)
-  print "Sum: " + result
-  
-  string greeting = greet("Alice")
-  print "Greeting: " + greeting
+    integer result = add(3, 5)
+    print "Sum: " + result
+
+    string greeting = greet("Alice")
+    print "Greeting: " + greeting
 finish
 ```
 
@@ -184,22 +198,22 @@ finish
 -- Time of day: afternoon
 
 start
-  integer hour = 14  -- Set to 2pm for testing
-  
-  if hour < 12
-    print "Good morning!"
-  else if hour < 18
-    print "Good afternoon!"
-  else
-    print "Good evening!"
-  end if
-  
-  string time_of_day
-  if hour < 12 then time_of_day = "morning"
-  else if hour < 18 then time_of_day = "afternoon"
-  else time_of_day = "evening"
-  
-  print "Time of day: " + time_of_day
+    integer hour = 14 -- Set to 2pm for testing
+
+    if hour < 12
+        print "Good morning!"
+    else if hour < 18
+        print "Good afternoon!"
+    else
+        print "Good evening!"
+  end if
+
+    string time_of_day
+    if hour < 12 then time_of_day = "morning"
+    else if hour < 18 then time_of_day = "afternoon"
+    else time_of_day = "evening"
+
+    print "Time of day: " + time_of_day
 finish
 ```
 
