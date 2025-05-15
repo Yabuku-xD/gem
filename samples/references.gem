@@ -1,0 +1,40 @@
+-- Reference Parameters
+-- Shows pass-by-reference for functions
+-- Expected output:
+-- Before swap: a=5, b=10
+-- After swap: a=10, b=5
+-- Original point: (3,4)
+-- Moved point: (8,9)
+
+struct Point
+  integer x
+  integer y
+end struct
+
+function swap(ref integer a, ref integer b)
+  integer temp = a
+  a = b
+  b = temp
+end function
+
+function move_point(ref Point p, integer dx, integer dy)
+  p.x = p.x + dx
+  p.y = p.y + dy
+end function
+
+start
+  integer a = 5
+  integer b = 10
+  print "Before swap: a=" + a + ", b=" + b
+
+  swap(ref a, ref b)
+  print "After swap: a=" + a + ", b=" + b
+
+  Point p
+  p.x = 3
+  p.y = 4
+  print "Original point: (" + p.x + "," + p.y + ")"
+
+  move_point(ref p, 5, 5)
+  print "Moved point: (" + p.x + "," + p.y + ")"
+finish

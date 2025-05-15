@@ -54,6 +54,8 @@ LBRACK: '[';
 RBRACK: ']';
 COMMA: ',';
 
+BOOLEAN_LITERAL: 'yes' | 'no';
+
 // Identifier and built-in function names - make sure ID comes before comment rules
 ID: [a-zA-Z][a-zA-Z0-9_]*;
 
@@ -62,7 +64,7 @@ INTEGER_LITERAL: '-'? [0-9]+;
 FLOAT_LITERAL: '-'? [0-9]+ '.' [0-9]+;
 STRING_LITERAL: '"' (~["\r\n] | '""')* '"';
 CHAR_LITERAL: '\'' (~['\r\n] | '\'\'') '\'';
-BOOLEAN_LITERAL: 'yes' | 'no';
+
 
 // Comments
 COMMENT: '--' ~[\r\n]* -> skip;

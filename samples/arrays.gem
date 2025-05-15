@@ -1,0 +1,30 @@
+-- Arrays
+-- Shows array creation and usage
+-- Expected output:
+-- Fruits: Apple Banana Cherry
+-- Scores: 85 92 78 90
+-- Average score: 86.25
+
+start
+  -- String array
+  string[] fruits = ["Apple", "Banana", "Cherry"]
+  print "Fruits: "
+  for i from 0 to 2
+    print fruits[i] + " "
+  end for
+
+  -- Number array with calculations
+  number[] scores = [85, 92, 78, 90]
+  print "Scores: "
+  for i from 0 to 3
+    print scores[i] + " "
+  end for
+
+  -- Calculate average
+  number sum = 0
+  for i from 0 to 3
+    sum = sum + scores[i]
+  end for
+  number average = sum / 4
+  print "Average score: " + average
+finish

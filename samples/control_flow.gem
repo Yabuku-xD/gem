@@ -1,0 +1,24 @@
+-- Control Flow
+-- Shows conditional statements
+-- Expected output (with hour = 14):
+-- Good afternoon!
+-- Time of day: afternoon
+
+start
+  integer hour = 14  -- Set to 2pm for testing
+
+  if hour < 12
+    print "Good morning!"
+  else if hour < 18
+    print "Good afternoon!"
+  else
+    print "Good evening!"
+  end if
+
+  string time_of_day
+  if hour < 12 then time_of_day = "morning"
+  else if hour < 18 then time_of_day = "afternoon"
+  else time_of_day = "evening"
+
+  print "Time of day: " + time_of_day
+finish

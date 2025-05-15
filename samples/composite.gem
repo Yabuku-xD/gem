@@ -1,0 +1,31 @@
+-- Composite Types
+-- Shows struct definition and usage
+-- Expected output:
+-- Person: John Doe, 30 years old
+-- Student: Alice Smith, 20 years old, ID: S12345
+
+struct Person
+  string name
+  integer age
+end struct
+
+struct Student extends Person
+  string student_id
+  number gpa
+end struct
+
+start
+  -- Create a Person
+  Person person
+  person.name = "John Doe"
+  person.age = 30
+  print "Person: " + person.name + ", " + person.age + " years old"
+
+  -- Create a Student
+  Student student
+  student.name = "Alice Smith"
+  student.age = 20
+  student.student_id = "S12345"
+  student.gpa = 3.8
+  print "Student: " + student.name + ", " + student.age + " years old, ID: " + student.student_id
+finish

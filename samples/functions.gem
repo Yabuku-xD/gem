@@ -1,0 +1,21 @@
+-- Functions
+-- Shows how to define and call functions
+-- Expected output:
+-- Sum: 8
+-- Greeting: Hello, Alice!
+
+function add(integer a, integer b) returns integer
+  return a + b
+end function
+
+function greet(string name) returns string
+  return "Hello, " + name + "!"
+end function
+
+start
+  integer result = add(3, 5)
+  print "Sum: " + result
+
+  string greeting = greet("Alice")
+  print "Greeting: " + greeting
+finish

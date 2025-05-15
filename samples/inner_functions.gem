@@ -1,0 +1,20 @@
+-- Inner Functions
+-- Shows nested functions and closures
+-- Expected output:
+-- Outer value: 10
+-- Inner value: 5
+-- Combined: 15
+
+start
+  integer outer_value = 10
+  print "Outer value: " + outer_value
+
+  function inner() returns integer
+    integer inner_value = 5
+    print "Inner value: " + inner_value
+    return outer_value + inner_value
+  end function
+
+  integer result = inner()
+  print "Combined: " + result
+finish

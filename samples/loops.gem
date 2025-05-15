@@ -1,0 +1,32 @@
+-- Loops
+-- A simplified version showing different types of loops
+
+start
+  -- First, calculate a sum with a while loop
+  print "Calculating sum of 1 to 5:"
+  integer counter = 1
+  integer total = 0
+  while counter <= 5
+    total = total + counter
+    counter = counter + 1
+  end while
+  print "Sum: " + total
+
+  -- Then show a for loop
+  print "Counting from 1 to 5:"
+  for index from 1 to 5
+    print index  -- Removed string concatenation
+  end for
+
+  -- Finally, a loop with break
+  print "Fibonacci sequence:"
+  integer first = 1
+  integer second = 1
+  loop
+    print first  -- Removed string concatenation
+    integer temp = first
+    first = second
+    second = temp + second
+    if second > 20 then break
+  end loop
+finish

@@ -1,0 +1,56 @@
+-- Message Passing System
+-- Shows special message system between objects
+-- Expected output:
+-- Processing text: Hello, World!
+-- Word count: 2
+-- Character count: 13
+-- Uppercase: HELLO, WORLD!
+
+message TextRequest
+  string text
+end message
+
+message TextResponse
+  integer word_count
+  integer char_count
+  string uppercase
+end message
+
+class TextProcessor
+  function analyze(TextRequest request) returns TextResponse
+    print "Processing text: " + request.text
+
+    -- Count words (simple split by spaces)
+    string[] words = split(request.text, " ")
+    integer word_count = length(words)
+
+    -- Count characters
+    integer char_count = length(request.text)
+
+    -- Convert to uppercase
+    string uppercase = uppercase(request.text)
+
+    -- Create response
+    TextResponse response
+    response.word_count = word_count
+    response.char_count = char_count
+    response.uppercase = uppercase
+
+    return response
+  end function
+end class
+
+start
+  -- Create request
+  TextRequest request
+  request.text = "Hello, World!"
+
+  -- Process the text
+  TextProcessor processor
+  TextResponse response = processor -> analyze(request)
+
+  -- Display results
+  print "Word count: " + response.word_count
+  print "Character count: " + response.char_count
+  print "Uppercase: " + response.uppercase
+finish

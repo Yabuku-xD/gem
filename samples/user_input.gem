@@ -1,0 +1,17 @@
+-- User Input
+-- Shows reading from the console
+-- Expected output depends on input
+
+start
+  print "What is your name?"
+  string name = read_line()
+
+  print "How old are you?"
+  integer age = read_integer()
+
+  print "Hello, " + name + "!"
+  print "You are " + age + " years old."
+
+  integer dog_years = age * 7
+  print "In dog years, you would be " + dog_years + " years old."
+finish

@@ -10,16 +10,21 @@ import java.util.ArrayList;
 public class CodeGenerator {
     private GemSemanticAnalyzer semanticAnalyzer;
     private Map<String, Integer> localVars = new HashMap<>();
+    private Map<String, String> definedVariables = new HashMap<>();
     private int nextVarIndex = 1; // 0 is reserved for 'this' in instance methods
     private Label currentBreakLabel = null;
 
     // Constructor
     public CodeGenerator() {
-        // No parameters needed
+        this.definedVariables = new HashMap<>();
     }
 
     public void generate(ParseTree tree, GemSemanticAnalyzer analyzer, String className, String outputFile) {
         this.semanticAnalyzer = analyzer;
+
+        for (Map.Entry<String, String> entry : analyzer.getAllVariableTypes().entrySet()) {
+            definedVariables.put(entry.getKey(), entry.getValue());
+        }
 
         try {
             // Create class writer
@@ -335,6 +340,17 @@ public class CodeGenerator {
         String loopVar = ctx.ID().getText();
         int varIndex = nextVarIndex++;
         localVars.put(loopVar, varIndex);
+
+        // Get and store the variable type from the semantic analyzer
+        String loopVarType = semanticAnalyzer.getVariableType(loopVar);
+        if (loopVarType == null) {
+            // For loop variables are always integers in Gem language
+            loopVarType = "integer";
+        }
+
+        if (!definedVariables.containsKey(loopVar)) {
+            definedVariables.put(loopVar, loopVarType);
+        }
 
         // Loop control labels
         Label loopStart = new Label();
@@ -846,6 +862,13 @@ public class CodeGenerator {
 
         int index = localVars.get(name);
 
+        if (type == null) {
+            type = definedVariables.get(name);
+            if (type == null) {
+                type = "integer";
+            }
+        }
+
         switch (type) {
             case "integer", "boolean" -> mv.visitVarInsn(Opcodes.ILOAD, index);
             case "number" -> mv.visitVarInsn(Opcodes.FLOAD, index);
@@ -958,21 +981,20 @@ public class CodeGenerator {
 
     private String getPrimaryExpressionType(gemParser.PrimaryExpressionContext ctx) {
         if (ctx.ID() != null && ctx.LPAREN() == null) {
-            // Variable reference
             String varName = ctx.ID().getText();
-            return semanticAnalyzer.getVariableType(varName);
+            String type = semanticAnalyzer.getVariableType(varName);
+            if (type == null) {
+                type = definedVariables.get(varName);
+            }
+            return type;
         } else if (ctx.literal() != null) {
-            // Literal value
             return getLiteralType(ctx.literal());
         } else if (ctx.expression() != null) {
-            // Parenthesized expression
             return getExpressionType(ctx.expression());
         } else if (ctx.ID() != null && ctx.LPAREN() != null) {
-            // Function call - simplified for now
             String funcName = ctx.ID().getText();
             if (funcName.equals("read_integer")) return "integer";
             if (funcName.equals("read_line")) return "string";
-            // For other functions, we'd need to look up their return types
             return "unknown";
         }
         return "unknown";

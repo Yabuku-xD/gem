@@ -9,6 +9,9 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
     private Map<String, SymbolTable> functionTables = new HashMap<>();
 
     private Map<String, String> definedVariables = new HashMap<>();
+    public Map<String, String> getAllVariableTypes() {
+        return new HashMap<>(definedVariables);
+    }
 
     public GemSemanticAnalyzer() {
         // Initialize with built-in types
@@ -210,6 +213,21 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
         if (ctx.CHAR_LITERAL() != null) return "char";
         if (ctx.BOOLEAN_LITERAL() != null) return "boolean";
         if (ctx.arrayLiteral() != null) return "array";
+        return null;
+    }
+
+    @Override
+    public String visitForLoop(gemParser.ForLoopContext ctx) {
+        Map<String, String> outerScope = new HashMap<>(definedVariables);
+
+        String loopVar = ctx.ID().getText();
+        definedVariables.put(loopVar, "integer");
+
+        for (gemParser.StatementContext stmt : ctx.statement()) {
+            visit(stmt);
+        }
+        definedVariables = outerScope;
+
         return null;
     }
 

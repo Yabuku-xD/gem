@@ -1,0 +1,37 @@
+-- Classes and Methods
+-- Shows class definition with methods
+-- Expected output:
+-- Rectangle area: 20
+-- Circle area: 28.26
+
+class Shape
+  -- Base class for shapes
+end class
+
+class Rectangle is Shape
+  number width
+  number height
+
+  function area() returns number
+    return width * height
+  end function
+end class
+
+class Circle is Shape
+  number radius
+
+  function area() returns number
+    return 3.14 * radius * radius
+  end function
+end class
+
+start
+  Rectangle rect
+  rect.width = 4
+  rect.height = 5
+  print "Rectangle area: " + rect.area()
+
+  Circle circle
+  circle.radius = 3
+  print "Circle area: " + circle.area()
+finish

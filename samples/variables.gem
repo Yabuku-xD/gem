@@ -1,0 +1,19 @@
+-- Variables and Types
+-- Shows different data types and variable declarations
+-- Expected output:
+-- Name: John
+-- Age: 30
+-- Height: 1.85
+-- Is a student: true
+
+start
+  string name = "John"
+  integer age = 30
+  number height = 1.85
+  boolean is_student = yes
+
+  print "Name: " + name
+  print "Age: " + age
+  print "Height: " + height
+  print "Is a student: " + is_student
+finish
