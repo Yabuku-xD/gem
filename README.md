@@ -235,7 +235,7 @@ start
   -- Then show a for loop
   print "Counting from 1 to 5:"
   for index from 1 to 5
-    print index  -- Removed string concatenation
+    print index
   end for
   
   -- Loop with break
