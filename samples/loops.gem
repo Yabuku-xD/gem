@@ -1,5 +1,4 @@
 -- Loops
--- A simplified version showing different types of loops
 
 start
   -- First, calculate a sum with a while loop

@@ -122,7 +122,7 @@ Use `--[ ... ]--` for multi line comments:
 ### Loops and Control Flow:
 - `for` loops for counted iterations
 - `while` loops for condition-based iteration
-- Infinite `loop` with `break` to exit
+- Infinite `loop` with break to exit
 - `break` can be used in any loop to exit early
 ### Parameter passing:
 - Default is pass-by-value
@@ -137,7 +137,7 @@ Use `--[ ... ]--` for multi line comments:
 -- Expected output: "Hello, World!"
 
 start
-    print "Hello, World!"
+  print "Hello, World!"
 finish
 ```
 
@@ -149,18 +149,18 @@ finish
 -- Name: John
 -- Age: 30
 -- Height: 1.85
--- Is a student: true
+-- Is a student: yes
 
 start
-    string name = "John"
-    integer age = 30
-    number height = 1.85
-    boolean is_student = yes
-
-    print "Name: " + name
-    print "Age: " + age
-    print "Height: " + height
-    print "Is a student: " + is_student
+  string name = "John"
+  integer age = 30
+  number height = 1.85
+  boolean is_student = yes
+  
+  print "Name: " + name
+  print "Age: " + age
+  print "Height: " + height
+  print "Is a student: " + is_student
 finish
 ```
 
@@ -173,19 +173,19 @@ finish
 -- Greeting: Hello, Alice!
 
 function add(integer a, integer b) returns integer
-    return a + b
+  return a + b
 end function
 
 function greet(string name) returns string
-    return "Hello, " + name + "!"
+  return "Hello, " + name + "!"
 end function
 
 start
-    integer result = add(3, 5)
-    print "Sum: " + result
-
-    string greeting = greet("Alice")
-    print "Greeting: " + greeting
+  integer result = add(3, 5)
+  print "Sum: " + result
+  
+  string greeting = greet("Alice")
+  print "Greeting: " + greeting
 finish
 ```
 
@@ -198,60 +198,56 @@ finish
 -- Time of day: afternoon
 
 start
-    integer hour = 14 -- Set to 2pm for testing
-
-    if hour < 12
-        print "Good morning!"
-    else if hour < 18
-        print "Good afternoon!"
-    else
-        print "Good evening!"
-  end if
-
-    string time_of_day
-    if hour < 12 then time_of_day = "morning"
-    else if hour < 18 then time_of_day = "afternoon"
-    else time_of_day = "evening"
-
-    print "Time of day: " + time_of_day
+  integer hour = 14  -- Set to 2pm for testing
+  
+  if hour < 12
+    print "Good morning!"
+  else if hour < 18
+    print "Good afternoon!"
+  else
+    print "Good evening!"
+  end if
+  
+  string time_of_day
+  if hour < 12 then time_of_day = "morning"
+  else if hour < 18 then time_of_day = "afternoon"
+  else time_of_day = "evening"
+  
+  print "Time of day: " + time_of_day
 finish
 ```
 
 `Program 5: Loops (loops.gem)`
 ```python
 -- Loops
--- Shows different types of loops
--- Expected output:
--- Counting: 1 2 3 4 5
--- Sum: 15
--- Fibonacci: 1 1 2 3 5 8 13
 
 start
-  -- For loop
-  print "Counting: "
-  for i from 1 to 5
-    print i + " "
+  -- First, calculate a sum with a while loop
+  print "Calculating sum of 1 to 5:"
+  integer counter = 1
+  inetger total = 0
+  while counter <= 5
+    total = total + counter
+    counter = counter + 1
+  end while
+  print "Sum: " + total
+  
+  -- Then show a for loop
+  print "Counting from 1 to 5:"
+  for index from 1 to 5
+    print index  -- Removed string concatenation
   end for
   
-  -- While loop with sum calculation
-  integer sum = 0
-  integer i = 1
-  while i <= 5
-    sum = sum + i
-    i = i + 1
-  end while
-  print "Sum: " + sum
-  
   -- Loop with break
-  print "Fibonacci: "
-  integer a = 1
-  integer b = 1
+  print "Fibonacci sequence:"
+  integer first = 1
+  integer second = 1
   loop
-    print a + " "
-    integer temp = a
-    a = b
-    b = temp + b
-    if b > 20 then break
+    print first
+    integer temp = first
+    first = second
+    second = temp + second
+    if second > 20 then break
   end loop
 finish
 ```
