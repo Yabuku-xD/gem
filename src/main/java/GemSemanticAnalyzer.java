@@ -116,7 +116,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
         String targetType = null;
 
         if (ctx.ID().size() > 1) {
-            // Field assignment: obj.field = value
             String objName = ctx.ID(0).getText();
             String fieldName = ctx.ID(1).getText();
             
@@ -150,7 +149,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
 
             targetType = fieldSymbol.getDataType();
         } else if (ctx.ID().size() > 0) {
-            // Simple variable assignment: var = value
             String varName = ctx.ID(0).getText();
             if (!definedVariables.containsKey(varName)) {
                 errors.add(new UndefinedVariableError(
@@ -182,7 +180,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
         if (ctx.ID() != null && ctx.LPAREN() == null) {
             String varName = ctx.ID().getText();
             
-            // Check if it's a built-in function first (even without parentheses in some contexts)
             if (globalScope.lookup(varName) != null && globalScope.lookup(varName).getSymbolType().equals("function")) {
                 return globalScope.lookup(varName).getDataType();
             }
@@ -272,13 +269,9 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
     @Override
     public String visitMessageExpression(gemParser.MessageExpressionContext ctx) {
         
-        // Handle array access
         if (ctx.LBRACK() != null) {
-            // With left-recursive grammar, the base expression is messageExpression()
             String baseType = visitMessageExpression(ctx.messageExpression());
-            // Check if the base type is an array type
             if (baseType != null && baseType.endsWith("[]")) {
-                // Get the element type (remove the [] suffix)
                 String elementType = baseType.substring(0, baseType.length() - 2);
                 return elementType;
             } else {
@@ -290,35 +283,28 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             }
         }
         
-        // Handle property access or method call
         else if (ctx.DOT() != null) {
             return "object"; // For now, just return a placeholder type
         }
         
-        // Handle message passing
         else if (ctx.ARROW() != null) {
             String baseType = visitMessageExpression(ctx.messageExpression());
             String methodName = ctx.ID().getText();
             
-            // Look up the method in the base type to get its return type
             if (baseType != null) {
-                // Special case for TextProcessor.analyze
                 if (methodName.equals("analyze") && baseType.equals("TextProcessor")) {
                     return "TextResponse";
                 }
                 
-                // Check if there's a global function with this name
                 Symbol funcSymbol = globalScope.lookup(methodName);
                 if (funcSymbol != null && funcSymbol.getSymbolType().equals("function")) {
                     return funcSymbol.getDataType();
                 }
             }
             
-            // Default fallback
             return "object";
         }
         
-        // Default - just the primary expression
         else if (ctx.primaryExpression() != null) {
             return visitPrimaryExpression(ctx.primaryExpression());
         }
@@ -335,7 +321,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             returnType = getTypeText(ctx.type());
         }
         
-        // Register the function in the global scope so it can be called
         if (globalScope.getLocal(funcName) != null) {
             errors.add(new DuplicateTypeError(
                     "Duplicate function definition: " + funcName,
@@ -344,31 +329,27 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             return null;
         }
         
-        // Register function in global scope
         globalScope.define(funcName, "function", returnType,
                           ctx.ID().getSymbol().getLine(),
                           ctx.ID().getSymbol().getCharPositionInLine());
         
-        // Add parameters to defined variables for the function scope
         if (ctx.parameterList() != null) {
             for (gemParser.ParameterContext param : ctx.parameterList().parameter()) {
                 String paramName = param.ID().getText();
                 String paramType = getTypeText(param.type());
                 
                 if (param.REF() != null) {
-                    paramType += "[]"; // Reference parameters are wrapped in arrays
+                    paramType += "[]";
                 }
                 
                 definedVariables.put(paramName, paramType);
             }
         }
         
-        // Visit function body
         for (gemParser.StatementContext stmt : ctx.statement()) {
             visit(stmt);
         }
         
-        // Remove parameters from defined variables after function processing
         if (ctx.parameterList() != null) {
             for (gemParser.ParameterContext param : ctx.parameterList().parameter()) {
                 String paramName = param.ID().getText();
@@ -754,9 +735,8 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
 
         if (targetType.equals("number") && sourceType.equals("integer")) return true;
 
-        // Handle array literals - if the target is an array type and source is "array"
         if (targetType.endsWith("[]") && sourceType.equals("array")) {
-            return true; // Allow array literals to be assigned to any array type
+            return true;
         }
         
         if (targetType.endsWith("[]") && sourceType.endsWith("[]")) {
@@ -765,8 +745,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             return isTypeCompatible(targetBaseType, sourceBaseType);
         }
         
-        // Special case for message passing - if the source is "object" or "TextResponse"
-        // and the target is "TextResponse", allow it
         if ((sourceType.equals("object") || sourceType.equals("TextResponse")) &&
             targetType.equals("TextResponse")) {
             return true;
@@ -802,7 +780,6 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             }
         }
         
-        // Return element type with array suffix
         return "array";
     }
     

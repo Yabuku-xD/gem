@@ -31,19 +31,15 @@ public class GemCompiler {
         try {
             String sourceCode = new String(Files.readAllBytes(Paths.get(sourceFile)));
 
-            // Create lexer
             CharStream input = CharStreams.fromString(sourceCode);
             gemLexer lexer = new gemLexer(input);
 
-            // Create error listeners for lexer
             GemErrorListener lexerErrorListener = new GemErrorListener();
             lexer.removeErrorListeners();
             lexer.addErrorListener(lexerErrorListener);
 
-            // Create token stream
             CommonTokenStream tokens = new CommonTokenStream(lexer);
 
-            // If stopping at lexing, print tokens and exit
             if (stopAt != null && stopAt.equals("lexing")) {
                 tokens.fill();
                 printTokens(tokens.getTokens());
@@ -51,29 +47,23 @@ public class GemCompiler {
                 return;
             }
 
-            // Create parser
             gemParser parser = new gemParser(tokens);
 
-            // Create error listeners for parser
             GemErrorListener parserErrorListener = new GemErrorListener();
             parser.removeErrorListeners();
             parser.addErrorListener(parserErrorListener);
 
-            // Parse the program
             ParseTree tree = parser.program();
 
-            // If stopping at parsing, print parse tree and exit
             if (stopAt != null && stopAt.equals("parsing")) {
                 printParseTree(tree, 0);
                 printErrors(lexerErrorListener.getErrors(), parserErrorListener.getErrors(), null);
                 return;
             }
 
-            // Semantic analysis
             GemSemanticAnalyzer semanticAnalyzer = new GemSemanticAnalyzer();
             semanticAnalyzer.analyzeTree(tree);
 
-            // If stopping at semantic, print symbol tables and exit
             if (stopAt != null && stopAt.equals("semantic")) {
                 System.out.println(semanticAnalyzer.getSymbolTablesAsString());
                 printErrors(
@@ -96,12 +86,10 @@ public class GemCompiler {
                 return;
             }
 
-            // No semantic errors, proceed to code generation
             String className = Paths.get(sourceFile).getFileName().toString();
             className = className.replaceAll("\\.gem$", "");
             String outputFile = className + ".class";
 
-            // Generate code
             try {
                 CodeGenerator codeGenerator = new CodeGenerator();
                 codeGenerator.generate(tree, semanticAnalyzer, className, outputFile);
@@ -139,7 +127,6 @@ public class GemCompiler {
 
         String indentStr = "  ".repeat(indent);
 
-        // Print the current node
         if (tree instanceof TerminalNode) {
             Token token = ((TerminalNode)tree).getSymbol();
             String tokenName = gemLexer.VOCABULARY.getSymbolicName(token.getType());
@@ -148,7 +135,6 @@ public class GemCompiler {
             String context = tree.getClass().getSimpleName().replace("Context", "");
             System.out.println(indentStr + context);
 
-            // Print children
             for (int i = 0; i < tree.getChildCount(); i++) {
                 printParseTree(tree.getChild(i), indent + 1);
             }

@@ -1,5 +1,4 @@
 import org.antlr.v4.runtime.tree.ParseTree;
-import org.antlr.v4.runtime.tree.TerminalNode; // Added for TerminalNode
 import org.objectweb.asm.*;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -9,17 +8,15 @@ public class CodeGenerator {
     private GemSemanticAnalyzer semanticAnalyzer;
     private Map<String, Integer> localVars = new HashMap<>();
     private Map<String, String> definedVariables = new HashMap<>();
-    private int nextVarIndex = 1; // Start at 1 for local vars if main's args is at 0
+    private int nextVarIndex = 1;
     private Label currentBreakLabel = null;
     private ClassWriter mainClassWriter;
     private String currentClassName;
 
-    // For struct/class definitions
     private Map<String, ClassWriter> typeWriters = new HashMap<>();
     private Map<String, Map<String, String>> typeFields = new HashMap<>();
     private Map<String, Map<String, FunctionInfo>> typeMethods = new HashMap<>();
 
-    // For function definitions
     private Map<String, FunctionInfo> functions = new HashMap<>();
 
     private static class FunctionInfo {
@@ -97,7 +94,7 @@ public class CodeGenerator {
             );
             mv.visitCode();
             localVars.clear();
-            nextVarIndex = 1; // args is at 0, so first local starts at 1
+            nextVarIndex = 1;
             localVars.put("args", 0); // Main method args
 
             generateProgram((gemParser.ProgramContext)tree, mv);
@@ -145,7 +142,6 @@ public class CodeGenerator {
         String structName = ctx.ID(0).getText();
         Map<String, String> fields = new LinkedHashMap<>();
         
-        // Handle inheritance - copy fields from parent struct
         if (ctx.ID().size() > 1) {
             String parentName = ctx.ID(1).getText();
             Map<String, String> parentFields = typeFields.get(parentName);
@@ -154,31 +150,25 @@ public class CodeGenerator {
             }
         }
         
-        // Add own fields
         for (gemParser.FieldContext field : ctx.field()) {
             fields.put(field.ID().getText(), getTypeString(field.type()));
         }
         typeFields.put(structName, fields);
         
-        // Check if this struct is a message type
         boolean isMessageType = ctx.IS() != null && ctx.IS_MESSAGE() != null;
         
-        // Generate bytecode for all structs (including message types)
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, structName, null, "java/lang/Object", null);
         
-        // Add fields
         for (Map.Entry<String, String> field : fields.entrySet()) {
             cw.visitField(Opcodes.ACC_PUBLIC, field.getKey(), getTypeDescriptor(field.getValue()), null, null).visitEnd();
         }
         
-        // Add constructor
         MethodVisitor constructor = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
         constructor.visitCode();
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
         constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
         
-        // Initialize fields with default values
         for (Map.Entry<String, String> field : fields.entrySet()) {
             constructor.visitVarInsn(Opcodes.ALOAD, 0);
             generateDefaultValue(field.getValue(), constructor);
@@ -201,11 +191,9 @@ public class CodeGenerator {
             toStringMethod.visitInsn(Opcodes.DUP);
             toStringMethod.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>", "()V", false);
             
-            // Append the class name
             toStringMethod.visitLdcInsn(structName + "{");
             toStringMethod.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
             
-            // Append each field
             boolean first = true;
             for (Map.Entry<String, String> field : fields.entrySet()) {
                 if (!first) {
@@ -214,7 +202,6 @@ public class CodeGenerator {
                 }
                 first = false;
                 
-                // Append field name
                 toStringMethod.visitLdcInsn(field.getKey() + "=");
                 toStringMethod.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
                 
@@ -227,18 +214,15 @@ public class CodeGenerator {
                 toStringMethod.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append", appendDescriptor, false);
             }
             
-            // Append closing brace
             toStringMethod.visitLdcInsn("}");
             toStringMethod.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
             
-            // Convert to string and return
             toStringMethod.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
             toStringMethod.visitInsn(Opcodes.ARETURN);
             toStringMethod.visitMaxs(3, 1);
             toStringMethod.visitEnd();
         }
         
-        // Store the class writer for later use
         typeWriters.put(structName, cw);
     }
     
@@ -260,22 +244,18 @@ public class CodeGenerator {
         }
         typeFields.put(messageName, fields);
         
-        // Generate bytecode for message types (same as structs but always marked as message)
         ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
         cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, messageName, null, "java/lang/Object", null);
         
-        // Add fields
         for (Map.Entry<String, String> field : fields.entrySet()) {
             cw.visitField(Opcodes.ACC_PUBLIC, field.getKey(), getTypeDescriptor(field.getValue()), null, null).visitEnd();
         }
         
-        // Add constructor
         MethodVisitor constructor = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
         constructor.visitCode();
         constructor.visitVarInsn(Opcodes.ALOAD, 0);
         constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
         
-        // Initialize fields with default values
         for (Map.Entry<String, String> field : fields.entrySet()) {
             constructor.visitVarInsn(Opcodes.ALOAD, 0);
             generateDefaultValue(field.getValue(), constructor);
@@ -288,20 +268,16 @@ public class CodeGenerator {
         
         System.out.println("Registered message type: " + messageName);
         
-        // For message types, we add a toString method to help with debugging
         MethodVisitor toStringMethod = cw.visitMethod(Opcodes.ACC_PUBLIC, "toString", "()Ljava/lang/String;", null, null);
         toStringMethod.visitCode();
         
-        // Create a StringBuilder
         toStringMethod.visitTypeInsn(Opcodes.NEW, "java/lang/StringBuilder");
         toStringMethod.visitInsn(Opcodes.DUP);
         toStringMethod.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/StringBuilder", "<init>", "()V", false);
         
-        // Append the class name
         toStringMethod.visitLdcInsn(messageName + "{");
         toStringMethod.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
         
-        // Append each field
         boolean first = true;
         for (Map.Entry<String, String> field : fields.entrySet()) {
             if (!first) {
@@ -310,30 +286,24 @@ public class CodeGenerator {
             }
             first = false;
             
-            // Append field name
             toStringMethod.visitLdcInsn(field.getKey() + "=");
             toStringMethod.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
             
-            // Append field value
             toStringMethod.visitVarInsn(Opcodes.ALOAD, 0);
             toStringMethod.visitFieldInsn(Opcodes.GETFIELD, messageName, field.getKey(), getTypeDescriptor(field.getValue()));
             
-            // Convert field to string based on its type
             String appendDescriptor = getAppendDescriptor(field.getValue());
             toStringMethod.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append", appendDescriptor, false);
         }
         
-        // Append closing brace
         toStringMethod.visitLdcInsn("}");
         toStringMethod.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "append", "(Ljava/lang/String;)Ljava/lang/StringBuilder;", false);
         
-        // Convert to string and return
         toStringMethod.visitMethodInsn(Opcodes.INVOKEVIRTUAL, "java/lang/StringBuilder", "toString", "()Ljava/lang/String;", false);
         toStringMethod.visitInsn(Opcodes.ARETURN);
         toStringMethod.visitMaxs(3, 1);
         toStringMethod.visitEnd();
         
-        // Store the class writer for later use
         typeWriters.put(messageName, cw);
     }
 
@@ -380,32 +350,25 @@ public class CodeGenerator {
     }
 
     private void generateTypeClasses() {
-        // Process all types that have fields defined (structs, classes, message types)
         for (Map.Entry<String, Map<String, String>> entry : typeFields.entrySet()) {
             String typeName = entry.getKey();
             Map<String, String> fields = entry.getValue();
             
-            // Check if we already have a ClassWriter for this type (created during collection phase)
             ClassWriter cw = typeWriters.get(typeName);
             
-            // If not, create a new one (this shouldn't happen with our current implementation
-            // but is here for robustness)
             if (cw == null) {
                 cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
                 cw.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, typeName, null, "java/lang/Object", null);
 
-                // Add fields
                 for (Map.Entry<String, String> field : fields.entrySet()) {
                     cw.visitField(Opcodes.ACC_PUBLIC, field.getKey(), getTypeDescriptor(field.getValue()), null, null).visitEnd();
                 }
 
-                // Add constructor
                 MethodVisitor constructor = cw.visitMethod(Opcodes.ACC_PUBLIC, "<init>", "()V", null, null);
                 constructor.visitCode();
                 constructor.visitVarInsn(Opcodes.ALOAD, 0);
                 constructor.visitMethodInsn(Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
                 
-                // Initialize fields with default values
                 for (Map.Entry<String, String> field : fields.entrySet()) {
                     constructor.visitVarInsn(Opcodes.ALOAD, 0);
                     generateDefaultValue(field.getValue(), constructor); // Push default value
@@ -419,7 +382,6 @@ public class CodeGenerator {
                 typeWriters.put(typeName, cw);
             }
 
-            // Add methods if this type has any
             Map<String, FunctionInfo> methods = typeMethods.get(typeName);
             if (methods != null) {
                 for (FunctionInfo method : methods.values()) {
@@ -448,7 +410,6 @@ public class CodeGenerator {
         nextVarIndex = 0;
         localVars.put("this", nextVarIndex++);
         
-        // Add class fields to the defined variables scope
         Map<String, String> classFields = typeFields.get(className);
         if (classFields != null) {
             for (Map.Entry<String, String> field : classFields.entrySet()) {
@@ -515,8 +476,6 @@ public class CodeGenerator {
     }
 
     private boolean isDoubleSlotType(String typeName) {
-        // In Java, long and double take two local variable slots.
-        // Gem does not currently have these, but this is for future-proofing.
         return typeName.equals("long") || typeName.equals("double");
     }
 
@@ -761,7 +720,6 @@ public class CodeGenerator {
     }
 
     private void generateIfStatement(gemParser.IfStatementContext ctx, MethodVisitor mv) {
-        // Simplified if-else if-else handling. A more robust solution would map statement blocks to conditions.
         Label endIfChainLabel = new Label();
         List<Label> nextConditionLabels = new ArrayList<>();
 
@@ -780,67 +738,22 @@ public class CodeGenerator {
             generateExpression(ctx.expression(i), mv);
             mv.visitJumpInsn(Opcodes.IFEQ, nextConditionLabels.get(i)); // If false, jump to next condition/else
 
-            // Execute statements for this block
-            // This assumes a certain structure of how statements are direct children or grouped.
-            // This part of the logic is complex with ANTLR's generic tree.
-            // We need to correctly associate statements with their `if`/`else if` clause.
-            // The existing logic for statementBlocks was a good attempt but needs refinement.
-            // For this fix, let's assume one statement per block for simplicity,
-            // or use a more direct way if parser rules allow easy grouping.
 
-            // Assuming `gemParser.IfStatementContext` structure:
-            // IF expr statement+ (ELSE IF expr statement+)* (ELSE statement+)? END IF
-            // Or: IF expr THEN statement (ELSE statement)?
-
-            if (ctx.THEN() != null) { // Single line if then (else)
+            if (ctx.THEN() != null) {
                 generateStatement(ctx.statement(statementCounter++), mv);
             } else {
-                // Multi-line: find statements before the next ELSE or END
-                // This is a placeholder for more complex block handling
-                // The key is to iterate ctx.statement() and associate them correctly.
-                // The previous attempt at statementBlocks had the right idea.
-                // Let's assume for now that the statements list `ctx.statement()` is flat
-                // and we consume one per block. This is likely too simple.
-                // A better way is to look at the grammar rule's children.
-                // `ctx.statement(i)` might not be correct for multi-line blocks.
-                if (statementCounter < ctx.statement().size()) { // Simplified: Process one statement for the block
+                if (statementCounter < ctx.statement().size()) {
                     generateStatement(ctx.statement(statementCounter++), mv);
                 }
             }
             mv.visitJumpInsn(Opcodes.GOTO, endIfChainLabel);
         }
 
-        // Handle the final else block (if any)
         mv.visitLabel(nextConditionLabels.get(ctx.expression().size() - (ctx.expression().isEmpty() ? 0 : 1) )); // Label for after all conditions failed
 
-        // Error was here:
-        // C:\Users\Yabuku\Downloads\gem\src\main\java\CodeGenerator.java:571: error: cannot find symbol
-        // if(ctx.ELSE() != null && ctx.getChild(ctx.ELSE().getSymbol().getTokenIndex()-1).getText().equals("end") == false ) { // Check if it's a true else, not part of an else if
-        //                                             ^ (pointing to getSymbol())
-        // symbol:   method getSymbol()
-        // location: interface List<TerminalNode>
 
-        boolean hasTrueElse = false;
         if (ctx.ELSE() != null && !ctx.ELSE().isEmpty()) {
-            // This logic determines if the *last* ELSE is a true `else` or part of an `else if`
-            // It's tricky because `ctx.ELSE()` gives all ELSE tokens.
-            // A simple check: if there's an ELSE and its corresponding block of statements exists.
-            // The original logic with getChild and getTokenIndex was very fragile.
-            // A simpler approach: If there's an ELSE token and more statements left than processed.
-            // The error clearly points to calling getSymbol on a List.
-            // We need to access a specific TerminalNode from the list first.
-            // E.g. ctx.ELSE().get(0).getSymbol() or ctx.ELSE(0).getSymbol() if using specific index method.
-            // The problematic line from the build output was:
-            // `ctx.getChild(ctx.ELSE().getSymbol().getTokenIndex()-1)`
-            // The fix is to operate on an element of the list:
-            // `ctx.getChild(ctx.ELSE().get( specific_else_index ).getSymbol().getTokenIndex()-1)`
-            // However, the logic for identifying a "true else" block in a flat list of statements is non-trivial.
-            // For now, let's assume if there is an ELSE token, and we still have statements in ctx.statement(), it's an else block.
-            // This part needs to be more robust based on how ANTLR groups these in the IfStatementContext.
-            // If there are statements after all `if`/`else if` blocks have been processed (statementCounter), it's likely the else block.
-            // This simplified approach might be incorrect for complex nested structures without explicit grammar rules for blocks.
-            if (statementCounter < ctx.statement().size() && ctx.ELSE(ctx.ELSE().size()-1) !=null ) { // Check if there are remaining statements for an else
-                // Iterate through remaining statements for the else block
+            if (statementCounter < ctx.statement().size() && ctx.ELSE(ctx.ELSE().size()-1) !=null ) {
                 for (int i = statementCounter; i < ctx.statement().size(); i++) {
                     generateStatement(ctx.statement(i), mv);
                 }
@@ -1235,29 +1148,25 @@ public class CodeGenerator {
             // Generate the index expression
             generateExpression(ctx.expression(), mv);
             
-            // Get the array type to determine the correct load instruction
             String arrayType = getMessageExpressionType(ctx.messageExpression());
             
-            // Array access operation
             if (arrayType != null && arrayType.equals("string[]")) {
-                mv.visitInsn(Opcodes.AALOAD); // Load reference from array
+                mv.visitInsn(Opcodes.AALOAD);
             } else if (arrayType != null && arrayType.equals("integer[]")) {
-                mv.visitInsn(Opcodes.IALOAD); // Load int from array
+                mv.visitInsn(Opcodes.IALOAD);
             } else if (arrayType != null && arrayType.equals("number[]")) {
-                mv.visitInsn(Opcodes.FALOAD); // Load float from array
+                mv.visitInsn(Opcodes.FALOAD);
             } else if (arrayType != null && arrayType.equals("boolean[]")) {
-                mv.visitInsn(Opcodes.BALOAD); // Load boolean from array
+                mv.visitInsn(Opcodes.BALOAD);
             } else if (arrayType != null && arrayType.equals("char[]")) {
-                mv.visitInsn(Opcodes.CALOAD); // Load char from array
+                mv.visitInsn(Opcodes.CALOAD);
             } else {
-                 // Handle potential error or default
-                 mv.visitInsn(Opcodes.AALOAD); // Default to reference load
+                 mv.visitInsn(Opcodes.AALOAD);
             }
         } else if (ctx.ARROW() != null) {
             String objType = getMessageExpressionType(ctx.messageExpression());
             String methodName = ctx.ID().getText();
             
-            // For message passing, we need to find the method in the target class
             Map<String, FunctionInfo> methodMap = typeMethods.getOrDefault(objType, Collections.emptyMap());
             FunctionInfo methodInfo = methodMap.get(methodName);
             
@@ -1265,17 +1174,14 @@ public class CodeGenerator {
                 throw new RuntimeException("Method " + methodName + " not found in message type " + objType);
             }
             
-            // Log message passing operation for debugging
             System.out.println("Processing message passing to " + objType + "." + methodName);
             
-            // For message passing, we need to prepare the arguments
             if (ctx.argumentList() != null) {
                 for (gemParser.ArgumentContext arg : ctx.argumentList().argument()) {
                     generateExpression(arg.expression(), mv);
                 }
             }
             
-            // Generate the method call - for message passing we use INVOKEVIRTUAL
             mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, objType, methodName, methodInfo.descriptor, false);
         } else if (ctx.DOT() != null) {
             String objType = getMessageExpressionType(ctx.messageExpression());
@@ -1290,12 +1196,10 @@ public class CodeGenerator {
                 }
                 mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, objType, memberName, methodInfo.descriptor, false);
             } else {
-                // Check if this is a reference parameter (wrapped in array)
                 if (objType.endsWith("[]")) {
-                    // Unwrap the reference parameter first
                     String elementType = objType.substring(0, objType.length() - 2);
-                    mv.visitInsn(Opcodes.ICONST_0); // Load index 0
-                    mv.visitInsn(Opcodes.AALOAD); // Get the object from array
+                    mv.visitInsn(Opcodes.ICONST_0);
+                    mv.visitInsn(Opcodes.AALOAD);
                     
                     Map<String, String> fields = typeFields.get(elementType);
                     if (fields == null || !fields.containsKey(memberName)) {
@@ -1311,7 +1215,6 @@ public class CodeGenerator {
                 }
             }
         } else if (ctx.primaryExpression() != null) {
-            // Not array access, arrow, or dot - generate primary expression normally
             generatePrimaryExpression(ctx.primaryExpression(), mv);
         }
     }
@@ -1321,7 +1224,6 @@ public class CodeGenerator {
         if (ctx.ID() != null && ctx.LPAREN() == null) {
             String varName = ctx.ID().getText();
             
-            // Check if it's a function first
             if (functions.containsKey(varName)) {
                 throw new RuntimeException("Function call missing parentheses: " + varName);
             }
@@ -1331,10 +1233,8 @@ public class CodeGenerator {
             }
             
             
-            // Check if this is a field access within a class method
             if (localVars.containsKey("this") && !localVars.containsKey(varName)) {
-                // This is a field access - generate this.field
-                mv.visitVarInsn(Opcodes.ALOAD, 0); // Load 'this'
+                mv.visitVarInsn(Opcodes.ALOAD, 0);
                 String fieldType = definedVariables.get(varName);
                 mv.visitFieldInsn(Opcodes.GETFIELD, currentClassName, varName, getTypeDescriptor(fieldType));
             } else {
@@ -1416,7 +1316,6 @@ public class CodeGenerator {
             } else if (functions.containsKey(funcName)) {
                 FunctionInfo func = functions.get(funcName);
                 if (ctx.argumentList() != null) {
-                    int argIndex = 0;
                     for (gemParser.ArgumentContext arg : ctx.argumentList().argument()) {
                         if (arg.REF() != null) {
                             // This is a reference parameter - wrap in array
@@ -1449,14 +1348,11 @@ public class CodeGenerator {
                         } else {
                             generateExpression(arg.expression(), mv);
                         }
-                        argIndex++;
                     }
                 }
                 mv.visitMethodInsn(Opcodes.INVOKESTATIC, currentClassName, funcName, func.descriptor, false);
                 
-                // After function call, extract modified values from reference arrays
                 if (ctx.argumentList() != null) {
-                    // We need to store the function's return value temporarily if it's not void
                     String returnType = functions.get(funcName).returnType;
                     int tempReturnVarIndex = -1;
                     
@@ -1468,15 +1364,12 @@ public class CodeGenerator {
                         storeVariable("__temp_return", returnType, mv);
                     }
                     
-                    // Process each reference parameter to extract modified values
                     for (gemParser.ArgumentContext arg : ctx.argumentList().argument()) {
                         if (arg.REF() != null) {
-                            // Extract the modified value from the array and store back to variable
                             String varName = arg.expression().logicalExpression().comparisonExpression(0)
                                 .additiveExpression(0).multiplicativeExpression(0).messageExpression(0)
                                 .primaryExpression().ID().getText();
                             String varType = definedVariables.get(varName);
-                            int varIndex = localVars.get(varName);
                             
                             // Create a new array reference for the parameter
                             mv.visitInsn(Opcodes.ICONST_1);
@@ -1486,18 +1379,14 @@ public class CodeGenerator {
                                 mv.visitTypeInsn(Opcodes.ANEWARRAY, getInternalName(varType));
                             }
                             
-                            // Store this array in a temporary variable
                             int tempArrayIndex = nextVarIndex++;
                             mv.visitVarInsn(Opcodes.ASTORE, tempArrayIndex);
                             
-                            // Load the array
                             mv.visitVarInsn(Opcodes.ALOAD, tempArrayIndex);
                             mv.visitInsn(Opcodes.ICONST_0);
                             
-                            // Load the original variable
                             loadVariable(varName, varType, mv);
                             
-                            // Store it in the array
                             if (isPrimitiveGemType(varType)) {
                                 switch (varType) {
                                     case "integer": mv.visitInsn(Opcodes.IASTORE); break;
@@ -1510,11 +1399,9 @@ public class CodeGenerator {
                                 mv.visitInsn(Opcodes.AASTORE);
                             }
                             
-                            // Call the function again with this reference
                             mv.visitVarInsn(Opcodes.ALOAD, tempArrayIndex);
                             mv.visitMethodInsn(Opcodes.INVOKESTATIC, currentClassName, funcName, func.descriptor, false);
                             
-                            // Pop the return value if not void
                             if (!"void".equals(returnType)) {
                                 if (isDoubleSlotType(returnType)) {
                                     mv.visitInsn(Opcodes.POP2);
@@ -1523,11 +1410,9 @@ public class CodeGenerator {
                                 }
                             }
                             
-                            // Extract the modified value from the array
                             mv.visitVarInsn(Opcodes.ALOAD, tempArrayIndex);
                             mv.visitInsn(Opcodes.ICONST_0);
                             
-                            // Load the element from the array
                             if (isPrimitiveGemType(varType)) {
                                 switch (varType) {
                                     case "integer": mv.visitInsn(Opcodes.IALOAD); break;
@@ -1545,7 +1430,6 @@ public class CodeGenerator {
                         }
                     }
                     
-                    // Restore the function's return value if needed
                     if (tempReturnVarIndex != -1) {
                         loadVariable("__temp_return", returnType, mv);
                     }
@@ -1553,25 +1437,20 @@ public class CodeGenerator {
             } else {
                 throw new UnsupportedOperationException("Function not found: " + funcName);
             }
-        } else { // Method call: obj.method() or obj->method()
+        } else {
             String objName = ctx.ID(0).getText();
             String methodName = ctx.ID(1).getText();
             String objType = definedVariables.get(objName);
             if (objType == null) throw new RuntimeException("Object " + objName + " not found.");
 
-            loadVariable(objName, objType, mv); // Load object instance
+            loadVariable(objName, objType, mv);
 
-            // Check if this is a message passing call (with arrow operator)
             boolean isMessagePassing = ctx.ARROW() != null;
             
-            // For message passing between objects, we need to find the method in the target class
-            // For regular method calls, we find the method in the object's class
             Map<String, FunctionInfo> methodMap = typeMethods.getOrDefault(objType, Collections.emptyMap());
             FunctionInfo methodInfo = methodMap.get(methodName);
             
             if (methodInfo == null) {
-                // If the method isn't found in the object's class, it might be a method in a parent class
-                // or it might be an error. For now, we'll throw an error.
                 throw new RuntimeException("Method " + methodName + " not found in " + objType);
             }
 
@@ -1581,15 +1460,11 @@ public class CodeGenerator {
                 }
             }
             
-            // For message passing, we use the same bytecode as regular method calls
-            // The difference is semantic - message passing is used for communication between objects
-            // that are marked as message types
             if (isMessagePassing) {
                 System.out.println("Processing message passing from " + objName + " to method " + methodName);
                 System.out.println("Method descriptor: " + methodInfo.descriptor);
                 System.out.println("Return type: " + methodInfo.returnType);
                 
-                // Additional logging for message passing to help with debugging
                 if (typeFields.containsKey(objType)) {
                     System.out.println("Message type " + objType + " has fields: " + typeFields.get(objType).keySet());
                 }
@@ -1708,16 +1583,6 @@ public class CodeGenerator {
         return switch (baseType) {
             case "string" -> "java/lang/String";
             default -> baseType;
-        };
-    }
-
-    private int getArrayLoadOpcode(String elementType) {
-        return switch (elementType) {
-            case "integer" -> Opcodes.IALOAD;
-            case "number" -> Opcodes.FALOAD;
-            case "boolean" -> Opcodes.BALOAD;
-            case "char" -> Opcodes.CALOAD;
-            default -> Opcodes.AALOAD;
         };
     }
 

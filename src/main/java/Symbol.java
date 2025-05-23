@@ -1,7 +1,7 @@
 public class Symbol {
     private final String name;
-    private final String symbolType;  // 'variable', 'function', 'struct', 'class', etc.
-    private final String dataType;    // 'integer', 'string', etc.
+    private final String symbolType;
+    private final String dataType;
     private boolean defined;
     private final int line;
     private final int column;
