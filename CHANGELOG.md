@@ -1,4 +1,21 @@
-# Updated CHANGELOG.md - May 14, 2025
+# Updated CHANGELOG.md - May 23, 2025
+
+### Sample Program Testing
+- Successfully executed all `.gem` programs in the `samples/` directory.
+- Verified core language features through sample programs:
+    - [`samples/arrays.gem`](samples/arrays.gem): Array declaration, initialization, iteration, and access.
+    - [`samples/basic_calculator.gem`](samples/basic_calculator.gem): User input, conditional logic, arithmetic operations, and looping.
+    - [`samples/classes.gem`](samples/classes.gem): Class definition, object instantiation, and method calls.
+    - [`samples/composite.gem`](samples/composite.gem): Struct and class composition.
+    - [`samples/control_flow.gem`](samples/control_flow.gem): If-else statements and logical operators.
+    - [`samples/functions.gem`](samples/functions.gem): Function definition, function calls, and return values.
+    - [`samples/hello.gem`](samples/hello.gem): Basic program structure and print statement.
+    - [`samples/inner_functions.gem`](samples/inner_functions.gem): Nested function definitions and scope.
+    - [`samples/loops.gem`](samples/loops.gem): For and while loops.
+    - [`samples/message.gem`](samples/message.gem): String manipulation and message passing (conceptual).
+    - [`samples/references.gem`](samples/references.gem): Reference parameters in functions.
+    - [`samples/user_input.gem`](samples/user_input.gem): Reading user input.
+    - [`samples/variables.gem`](samples/variables.gem): Variable declaration and various data types.
 
 ### Break Statement Implementation
 - Added support for break statements in all loop types (for, while, infinite loop)
