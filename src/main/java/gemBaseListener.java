@@ -196,6 +196,18 @@ public class gemBaseListener implements gemListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterMessageDeclaration(gemParser.MessageDeclarationContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitMessageDeclaration(gemParser.MessageDeclarationContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterField(gemParser.FieldContext ctx) { }
 	/**
 	 * {@inheritDoc}

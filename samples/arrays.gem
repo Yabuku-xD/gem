@@ -14,17 +14,17 @@ start
   end for
 
   -- Number array with calculations
-  number[] scores = [85, 92, 78, 90]
+  number[] scores = [85.0, 92.0, 78.0, 90.0]
   print "Scores: "
   for i from 0 to 3
     print scores[i] + " "
   end for
 
   -- Calculate average
-  number sum = 0
+  number sum = 0.0
   for i from 0 to 3
     sum = sum + scores[i]
   end for
-  number average = sum / 4
+  number average = sum / 4.0
   print "Average score: " + average
 finish

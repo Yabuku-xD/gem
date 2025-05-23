@@ -157,6 +157,16 @@ public interface gemListener extends ParseTreeListener {
 	 */
 	void exitStructDeclaration(gemParser.StructDeclarationContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link gemParser#messageDeclaration}.
+	 * @param ctx the parse tree
+	 */
+	void enterMessageDeclaration(gemParser.MessageDeclarationContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link gemParser#messageDeclaration}.
+	 * @param ctx the parse tree
+	 */
+	void exitMessageDeclaration(gemParser.MessageDeclarationContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link gemParser#field}.
 	 * @param ctx the parse tree
 	 */

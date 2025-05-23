@@ -82,6 +82,7 @@ declaration
     : structDeclaration
     | classDeclaration
     | functionDeclaration
+    | messageDeclaration
     ;
 
 statement
@@ -159,6 +160,10 @@ structDeclaration
     : STRUCT ID (EXTENDS ID)? (IS IS_MESSAGE)? field* END STRUCT
     ;
 
+messageDeclaration
+    : IS_MESSAGE ID field* END IS_MESSAGE
+    ;
+
 field
     : type ID
     ;
@@ -227,10 +232,10 @@ multiplicativeExpression
 
 messageExpression
     : primaryExpression
-    | primaryExpression ARROW ID LPAREN argumentList? RPAREN // Message passing
-    | primaryExpression DOT ID LPAREN argumentList? RPAREN  // Method call
-    | primaryExpression DOT ID                      // Property access
-    | primaryExpression LBRACK expression RBRACK    // Array access
+    | messageExpression ARROW ID LPAREN argumentList? RPAREN // Message passing
+    | messageExpression DOT ID LPAREN argumentList? RPAREN  // Method call
+    | messageExpression DOT ID                      // Property access
+    | messageExpression LBRACK expression RBRACK    // Array access
     ;
 
 message_type
@@ -238,15 +243,15 @@ message_type
     ;
 
 primaryExpression
-    : ID                                        // Simple identifier
+    : ID LPAREN argumentList? RPAREN            // Function call (including 'read_line', 'read_integer', 'uppercase', 'split', 'length')
+    | ID                                        // Simple identifier
     | literal                                   // Literal value
     | LPAREN expression RPAREN                  // Parenthesized expression
-    | ID LPAREN argumentList? RPAREN            // Function call (including 'read_line', 'read_integer', 'uppercase', 'split', 'length')
     ;
 
 literal
-    : INTEGER_LITERAL
-    | FLOAT_LITERAL
+    : FLOAT_LITERAL
+    | INTEGER_LITERAL
     | STRING_LITERAL
     | CHAR_LITERAL
     | BOOLEAN_LITERAL
