@@ -1107,7 +1107,16 @@ public class CodeGenerator {
                     if (argIndex < func.paramRefs.size() && func.paramRefs.get(argIndex)) {
                         // Reference parameter - wrap in array
                         mv.visitIntInsn(Opcodes.SIPUSH, 1);
-                        mv.visitNewArray(getArrayTypeOpcode(func.paramTypes.get(argIndex)));
+                        String paramType = func.paramTypes.get(argIndex);
+                        if (paramType.equals("string")) {
+                            mv.visitTypeInsn(Opcodes.ANEWARRAY, "java/lang/String");
+                        } else if (paramType.equals("integer") || paramType.equals("boolean")) {
+                            mv.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_INT);
+                        } else if (paramType.equals("number")) {
+                            mv.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_FLOAT);
+                        } else {
+                            mv.visitTypeInsn(Opcodes.ANEWARRAY, "java/lang/Object");
+                        }
                         mv.visitInsn(Opcodes.DUP);
                         mv.visitInsn(Opcodes.ICONST_0);
                         generateExpression(arg.expression(), mv);
@@ -1115,8 +1124,6 @@ public class CodeGenerator {
                     } else {
                         generateExpression(arg.expression(), mv);
                     }
-                    argIndex++;
-                }
             }
 
             mv.visitMethodInsn(Opcodes.INVOKESTATIC, currentClassName, funcName,
@@ -1147,7 +1154,7 @@ public class CodeGenerator {
                             String varType = definedVariables.get(varName);
 
                             mv.visitIntInsn(Opcodes.SIPUSH, 1);
-                            mv.visitNewArray(getArrayTypeOpcode(varType));
+                            mv.visitIntInsn(Opcodes.NEWARRAY, getArrayTypeOpcode(varType));
                             mv.visitInsn(Opcodes.DUP);
                             mv.visitInsn(Opcodes.ICONST_0);
                             loadVariable(varName, varType, mv);
@@ -1236,7 +1243,18 @@ public class CodeGenerator {
 
         if (size > 0) {
             String elementType = getExpressionType(ctx.expression(0));
-            mv.visitNewArray(getArrayTypeOpcode(elementType));
+
+            // Handle different array types correctly
+            if (elementType.equals("string")) {
+                mv.visitTypeInsn(Opcodes.ANEWARRAY, "java/lang/String");
+            } else if (elementType.equals("integer") || elementType.equals("boolean")) {
+                mv.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_INT);
+            } else if (elementType.equals("number")) {
+                mv.visitIntInsn(Opcodes.NEWARRAY, Opcodes.T_FLOAT);
+            } else {
+                // For other object types
+                mv.visitTypeInsn(Opcodes.ANEWARRAY, "java/lang/Object");
+            }
 
             for (int i = 0; i < size; i++) {
                 mv.visitInsn(Opcodes.DUP);
