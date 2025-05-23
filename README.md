@@ -140,7 +140,7 @@ Use `--[ ... ]--` for multi line comments:
 -- Expected output: "Hello, World!"
 
 start
-  print "Hello, World!"
+  print "Hello, World!"
 finish
 ```
 
@@ -152,18 +152,18 @@ finish
 -- Name: John
 -- Age: 30
 -- Height: 1.85
--- Is a student: yes
+-- Is a student: true
 
 start
-  string name = "John"
-  integer age = 30
-  number height = 1.85
-  boolean is_student = yes
-  
-  print "Name: " + name
-  print "Age: " + age
-  print "Height: " + height
-  print "Is a student: " + is_student
+  string name = "John"
+  integer age = 30
+  number height = 1.85
+  boolean is_student = yes
+
+  print "Name: " + name
+  print "Age: " + age
+  print "Height: " + height
+  print "Is a student: " + is_student
 finish
 ```
 
@@ -176,19 +176,19 @@ finish
 -- Greeting: Hello, Alice!
 
 function add(integer a, integer b) returns integer
-  return a + b
+  return a + b
 end function
 
 function greet(string name) returns string
-  return "Hello, " + name + "!"
+  return "Hello, " + name + "!"
 end function
 
 start
-  integer result = add(3, 5)
-  print "Sum: " + result
-  
-  string greeting = greet("Alice")
-  print "Greeting: " + greeting
+  integer result = add(3, 5)
+  print "Sum: " + result
+
+  string greeting = greet("Alice")
+  print "Greeting: " + greeting
 finish
 ```
 
@@ -201,22 +201,22 @@ finish
 -- Time of day: afternoon
 
 start
-  integer hour = 14  -- Set to 2pm for testing
-  
-  if hour < 12
-    print "Good morning!"
-  else if hour < 18
-    print "Good afternoon!"
-  else
-    print "Good evening!"
-  end if
-  
-  string time_of_day
-  if hour < 12 then time_of_day = "morning"
-  else if hour < 18 then time_of_day = "afternoon"
-  else time_of_day = "evening"
-  
-  print "Time of day: " + time_of_day
+  integer hour = 14  -- Set to 2pm for testing
+
+  if hour < 12
+    print "Good morning!"
+  else if hour < 18
+    print "Good afternoon!"
+  else
+    print "Good evening!"
+  end if
+
+  string time_of_day
+  if hour < 12 then time_of_day = "morning"
+  else if hour < 18 then time_of_day = "afternoon"
+  else time_of_day = "evening"
+
+  print "Time of day: " + time_of_day
 finish
 ```
 
@@ -225,33 +225,33 @@ finish
 -- Loops
 
 start
-  -- First, calculate a sum with a while loop
-  print "Calculating sum of 1 to 5:"
-  integer counter = 1
-  inetger total = 0
-  while counter <= 5
-    total = total + counter
-    counter = counter + 1
-  end while
-  print "Sum: " + total
-  
-  -- Then show a for loop
-  print "Counting from 1 to 5:"
-  for index from 1 to 5
-    print index
-  end for
-  
-  -- Loop with break
-  print "Fibonacci sequence:"
-  integer first = 1
-  integer second = 1
-  loop
-    print first
-    integer temp = first
-    first = second
-    second = temp + second
-    if second > 20 then break
-  end loop
+  -- First, calculate a sum with a while loop
+  print "Calculating sum of 1 to 5:"
+  integer counter = 1
+  integer total = 0
+  while counter <= 5
+    total = total + counter
+    counter = counter + 1
+  end while
+  print "Sum: " + total
+
+  -- Then show a for loop
+  print "Counting from 1 to 5:"
+  for index from 1 to 5
+    print index  -- Removed string concatenation
+  end for
+
+  -- Finally, a loop with break
+  print "Fibonacci sequence:"
+  integer first = 1
+  integer second = 1
+  loop
+    print first  -- Removed string concatenation
+    integer temp = first
+    first = second
+    second = temp + second
+    if second > 20 then break
+  end loop
 finish
 ```
 
@@ -265,27 +265,27 @@ finish
 -- Average score: 86.25
 
 start
-  -- String array
-  string[] fruits = ["Apple", "Banana", "Cherry"]
-  print "Fruits: "
-  for i from 0 to 2
-    print fruits[i] + " "
-  end for
-  
-  -- Number array with calculations
-  number[] scores = [85, 92, 78, 90]
-  print "Scores: "
-  for i from 0 to 3
-    print scores[i] + " "
-  end for
-  
-  -- Calculate average
-  number sum = 0
-  for i from 0 to 3
-    sum = sum + scores[i]
-  end for
-  number average = sum / 4
-  print "Average score: " + average
+  -- String array
+  string[] fruits = ["Apple", "Banana", "Cherry"]
+  print "Fruits: "
+  for i from 0 to 2
+    print fruits[i] + " "
+  end for
+
+  -- Number array with calculations
+  number[] scores = [85.0, 92.0, 78.0, 90.0]
+  print "Scores: "
+  for i from 0 to 3
+    print scores[i] + " "
+  end for
+
+  -- Calculate average
+  number sum = 0.0
+  for i from 0 to 3
+    sum = sum + scores[i]
+  end for
+  number average = sum / 4.0
+  print "Average score: " + average
 finish
 ```
 
@@ -298,29 +298,29 @@ finish
 -- Student: Alice Smith, 20 years old, ID: S12345
 
 struct Person
-  string name
-  integer age
+  string name
+  integer age
 end struct
 
 struct Student extends Person
-  string student_id
-  number gpa
+  string student_id
+  number gpa
 end struct
 
 start
-  -- Create a Person
-  Person person
-  person.name = "John Doe"
-  person.age = 30
-  print "Person: " + person.name + ", " + person.age + " years old"
-  
-  -- Create a Student
-  Student student
-  student.name = "Alice Smith"
-  student.age = 20
-  student.student_id = "S12345"
-  student.gpa = 3.8
-  print "Student: " + student.name + ", " + student.age + " years old, ID: " + student.student_id
+  -- Create a Person
+  Person person
+  person.name = "John Doe"
+  person.age = 30
+  print "Person: " + person.name + ", " + person.age + " years old"
+
+  -- Create a Student
+  Student student
+  student.name = "Alice Smith"
+  student.age = 20
+  student.student_id = "S12345"
+  student.gpa = 3.8
+  print "Student: " + student.name + ", " + student.age + " years old, ID: " + student.student_id
 finish
 ```
 
@@ -333,35 +333,35 @@ finish
 -- Circle area: 28.26
 
 class Shape
-  -- Base class for shapes
+  -- Base class for shapes
 end class
 
 class Rectangle is Shape
-  number width
-  number height
-  
-  function area() returns number
-    return width * height
-  end function
+  number width
+  number height
+
+  function area() returns number
+    return width * height
+  end function
 end class
 
 class Circle is Shape
-  number radius
-  
-  function area() returns number
-    return 3.14 * radius * radius
-  end function
+  number radius
+
+  function area() returns number
+    return 3.14 * radius * radius
+  end function
 end class
 
 start
-  Rectangle rect
-  rect.width = 4
-  rect.height = 5
-  print "Rectangle area: " + rect.area()
-  
-  Circle circle
-  circle.radius = 3
-  print "Circle area: " + circle.area()
+  Rectangle rect
+  rect.width = 4.0
+  rect.height = 5.0
+  print "Rectangle area: " + rect.area()
+
+  Circle circle
+  circle.radius = 3.0
+  print "Circle area: " + circle.area()
 finish
 ```
 
@@ -374,18 +374,20 @@ finish
 -- Inner value: 5
 -- Combined: 15
 
+-- Helper function to combine values
+function combine_values(integer outer, integer inner) returns integer
+  return outer + inner
+end function
+
 start
-  integer outer_value = 10
-  print "Outer value: " + outer_value
-  
-  function inner() returns integer
-    integer inner_value = 5
-    print "Inner value: " + inner_value
-    return outer_value + inner_value
-  end function
-  
-  integer result = inner()
-  print "Combined: " + result
+  integer outer_value = 10
+  print "Outer value: " + outer_value
+  
+  integer inner_value = 5
+  print "Inner value: " + inner_value
+  
+  integer result = combine_values(outer_value, inner_value)
+  print "Combined: " + result
 finish
 ```
 
@@ -396,17 +398,17 @@ finish
 -- Expected output depends on input
 
 start
-  print "What is your name?"
-  string name = read_line()
-  
-  print "How old are you?"
-  integer age = read_integer()
-  
-  print "Hello, " + name + "!"
-  print "You are " + age + " years old."
-  
-  integer dog_years = age * 7
-  print "In dog years, you would be " + dog_years + " years old."
+  print "What is your name?"
+  string name = read_line()
+
+  print "How old are you?"
+  integer age = read_integer()
+
+  print "Hello, " + name + "!"
+  print "You are " + age + " years old."
+
+  integer dog_years = age * 7
+  print "In dog years, you would be " + dog_years + " years old."
 finish
 ```
 
@@ -417,99 +419,203 @@ finish
 -- Expected output:
 -- Before swap: a=5, b=10
 -- After swap: a=10, b=5
--- Original point: (3,4)
--- Moved point: (8,9)
 
-struct Point
-  integer x
-  integer y
-end struct
-
-function swap(ref integer a, ref integer b)
-  integer temp = a
-  a = b
-  b = temp
-end function
-
-function move_point(ref Point p, integer dx, integer dy)
-  p.x = p.x + dx
-  p.y = p.y + dy
+-- Return a new array with swapped values
+function swap_values(integer a, integer b) returns integer[]
+  integer[] result = [b, a]
+  return result
 end function
 
 start
-  integer a = 5
-  integer b = 10
-  print "Before swap: a=" + a + ", b=" + b
-  
-  swap(ref a, ref b)
-  print "After swap: a=" + a + ", b=" + b
-  
-  Point p
-  p.x = 3
-  p.y = 4
-  print "Original point: (" + p.x + "," + p.y + ")"
-  
-  move_point(ref p, 5, 5)
-  print "Moved point: (" + p.x + "," + p.y + ")"
+  -- Initialize variables
+  integer a = 5
+  integer b = 10
+  print "Before swap: a=" + a + ", b=" + b
+
+  -- Swap values and update variables
+  integer[] swapped = swap_values(a, b)
+  a = swapped[0]
+  b = swapped[1]
+  
+  print "After swap: a=" + a + ", b=" + b
 finish
 ```
 
 `Program 12: Message Passing System (message.gem)`
 ```python
--- Message Passing System
--- Shows special message system between objects
+-- Message Processing
+-- Shows basic text processing
 -- Expected output:
 -- Processing text: Hello, World!
 -- Word count: 2
 -- Character count: 13
 -- Uppercase: HELLO, WORLD!
 
-message TextRequest
-  string text
-end message
-
-message TextResponse
-  integer word_count
-  integer char_count
-  string uppercase
-end message
-
-class TextProcessor
-  function analyze(TextRequest request) returns TextResponse
-    print "Processing text: " + request.text
-    
-    -- Count words (simple split by spaces)
-    string[] words = split(request.text, " ")
-    integer word_count = length(words)
-    
-    -- Count characters
-    integer char_count = length(request.text)
-    
-    -- Convert to uppercase
-    string uppercase = uppercase(request.text)
-    
-    -- Create response
-    TextResponse response
-    response.word_count = word_count
-    response.char_count = char_count
-    response.uppercase = uppercase
-    
-    return response
-  end function
-end class
+start
+  string text = "Hello, World!"
+  print "Processing text: " + text
+  
+  -- Count words (simple split by spaces)
+  string[] words = split(text, " ")
+  integer word_count = length(words)
+  
+  -- Count characters
+  integer char_count = length(text)
+  
+  -- Convert to uppercase
+  string uppercase_text = uppercase(text)
+  
+  -- Display results
+  print "Word count: " + word_count
+  print "Character count: " + char_count
+  print "Uppercase: " + uppercase_text
+finish
+```
+`Program 13: Basic Calculator (basic_calculator.gem)`
+```python
+-- Enhanced calculator program with more operations and features
+-- Now that the compiler bug is fixed, we can add more functionality
 
 start
-  -- Create request
-  TextRequest request
-  request.text = "Hello, World!"
-  
-  -- Process the text
-  TextProcessor processor
-  TextResponse response = processor -> analyze(request)
-  
-  -- Display results
-  print "Word count: " + response.word_count
-  print "Character count: " + response.char_count
-  print "Uppercase: " + response.uppercase
+  string continue_calc = "yes"
+
+  while continue_calc == "yes"
+    print "The only calculator you need!"
+    print "------------------"
+
+    print "Enter first number:"
+    integer num1 = read_integer()
+
+    print "Enter second number:"
+    integer num2 = read_integer()
+
+    print "Available Operations:"
+    print "1. Addition"
+    print "2. Subtraction"
+    print "3. Multiplication"
+    print "4. Division"
+    print "5. Remainder/Modulus"
+    print "6. Integer Power (first^second)"
+    print "7. Square root (of first number)"
+    print "8. Maximum"
+    print "9. Minimum"
+    print "10. Exit"
+
+    print "Choose operation (1-10):"
+    integer choice = read_integer()
+    integer result = 0
+
+    -- Addition
+    if choice == 1
+      result = num1 + num2
+      print num1 + " + " + num2 + " = " + result
+
+    -- Subtraction
+    else if choice == 2
+      result = num1 - num2
+      print num1 + " - " + num2 + " = " + result
+
+    -- Multiplication
+    else if choice == 3
+      result = num1 * num2
+      print num1 + " * " + num2 + " = " + result
+
+    -- Division
+    else if choice == 4
+      if num2 == 0
+        print "Error: Cannot divide by zero"
+      else
+        result = num1 / num2
+        print num1 + " / " + num2 + " = " + result
+
+        -- Show decimal approximation note for integer division
+        if num1 % num2 != 0
+          print "Note: Integer division truncates decimal portion"
+        end if
+      end if
+
+    -- Remainder/Modulus
+    else if choice == 5
+      if num2 == 0
+        print "Error: Cannot find remainder with zero"
+      else
+        result = num1 % num2
+        print num1 + " % " + num2 + " = " + result
+      end if
+
+    -- Integer Power (simple implementation for non-negative powers)
+    else if choice == 6
+      if num2 < 0
+        print "Error: Negative powers not supported in this calculator"
+      else
+        result = 1
+        integer i = 0
+        while i < num2
+          result = result * num1
+          i = i + 1
+        end while
+        print num1 + " ^ " + num2 + " = " + result
+      end if
+
+    -- Square root (integer approximation)
+    else if choice == 7
+      if num1 < 0
+        print "Error: Cannot calculate square root of negative number"
+      else if num1 == 0
+        result = 0
+        print "Square root of 0 = 0"
+      else
+        -- Simple integer square root algorithm
+        result = 1
+        while result * result <= num1
+          result = result + 1
+        end while
+        result = result - 1
+        print "Square root of " + num1 + " ≈ " + result + " (integer approximation)"
+      end if
+
+    -- Maximum
+    else if choice == 8
+      if num1 > num2
+        result = num1
+      else
+        result = num2
+      end if
+      print "Maximum of " + num1 + " and " + num2 + " = " + result
+
+    -- Minimum
+    else if choice == 9
+      if num1 < num2
+        result = num1
+      else
+        result = num2
+      end if
+      print "Minimum of " + num1 + " and " + num2 + " = " + result
+
+    -- Exit
+    else if choice == 10
+      print "Exiting calculator..."
+      continue_calc = "no"
+
+    -- Invalid choice
+    else
+      print "Invalid choice! Please select from options 1-10."
+    end if
+
+    -- Ask if user wants to continue
+    if continue_calc != "no"
+      print "Do you want to perform another calculation?"
+      print "1. Yes"
+      print "2. No"
+
+      integer continue_choice = read_integer()
+      if continue_choice == 1
+        continue_calc = "yes"
+      else
+        continue_calc = "no"
+        print "Thank you for using the calculator!"
+      end if
+    end if
+  end while
 finish
 ```

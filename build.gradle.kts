@@ -30,6 +30,7 @@ tasks.generateGrammarSource {
 tasks.compileJava {
     dependsOn(tasks.generateGrammarSource)
     options.release.set(21)
+    options.compilerArgs.add("--enable-preview")
 }
 
 // Disable test tasks since they're causing problems
@@ -75,11 +76,6 @@ tasks.register<Exec>("runGemProgram") {
     }
 }
 
-tasks.compileJava {
-    dependsOn(tasks.generateGrammarSource)
-    options.compilerArgs.add("--enable-preview")
-    options.release.set(21)
-}
 
 tasks.withType<JavaExec> {
     jvmArgs("--enable-preview")
