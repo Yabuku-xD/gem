@@ -5,16 +5,18 @@
 -- Inner value: 5
 -- Combined: 15
 
+-- Helper function to combine values
+function combine_values(integer outer, integer inner) returns integer
+  return outer + inner
+end function
+
 start
   integer outer_value = 10
   print "Outer value: " + outer_value
-
-  function inner() returns integer
-    integer inner_value = 5
-    print "Inner value: " + inner_value
-    return outer_value + inner_value
-  end function
-
-  integer result = inner()
+  
+  integer inner_value = 5
+  print "Inner value: " + inner_value
+  
+  integer result = combine_values(outer_value, inner_value)
   print "Combined: " + result
 finish

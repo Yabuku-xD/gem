@@ -1456,7 +1456,19 @@ public class CodeGenerator {
                 
                 // After function call, extract modified values from reference arrays
                 if (ctx.argumentList() != null) {
-                    int argIndex = 0;
+                    // We need to store the function's return value temporarily if it's not void
+                    String returnType = functions.get(funcName).returnType;
+                    int tempReturnVarIndex = -1;
+                    
+                    if (!"void".equals(returnType)) {
+                        tempReturnVarIndex = nextVarIndex++;
+                        if (isDoubleSlotType(returnType)) {
+                            nextVarIndex++;
+                        }
+                        storeVariable("__temp_return", returnType, mv);
+                    }
+                    
+                    // Process each reference parameter to extract modified values
                     for (gemParser.ArgumentContext arg : ctx.argumentList().argument()) {
                         if (arg.REF() != null) {
                             // Extract the modified value from the array and store back to variable
@@ -1464,13 +1476,78 @@ public class CodeGenerator {
                                 .additiveExpression(0).multiplicativeExpression(0).messageExpression(0)
                                 .primaryExpression().ID().getText();
                             String varType = definedVariables.get(varName);
+                            int varIndex = localVars.get(varName);
                             
-                            // The array is still on the stack from the function call
-                            // We need to load it, get element 0, and store back to the variable
-                            // But since the function consumed the array, we need a different approach
-                            // For now, skip this - the function should modify the array in place
+                            // Create a new array reference for the parameter
+                            mv.visitInsn(Opcodes.ICONST_1);
+                            if (isPrimitiveGemType(varType)) {
+                                mv.visitIntInsn(Opcodes.NEWARRAY, getPrimitiveArrayTypecode(varType));
+                            } else {
+                                mv.visitTypeInsn(Opcodes.ANEWARRAY, getInternalName(varType));
+                            }
+                            
+                            // Store this array in a temporary variable
+                            int tempArrayIndex = nextVarIndex++;
+                            mv.visitVarInsn(Opcodes.ASTORE, tempArrayIndex);
+                            
+                            // Load the array
+                            mv.visitVarInsn(Opcodes.ALOAD, tempArrayIndex);
+                            mv.visitInsn(Opcodes.ICONST_0);
+                            
+                            // Load the original variable
+                            loadVariable(varName, varType, mv);
+                            
+                            // Store it in the array
+                            if (isPrimitiveGemType(varType)) {
+                                switch (varType) {
+                                    case "integer": mv.visitInsn(Opcodes.IASTORE); break;
+                                    case "number": mv.visitInsn(Opcodes.FASTORE); break;
+                                    case "boolean": mv.visitInsn(Opcodes.BASTORE); break;
+                                    case "char": mv.visitInsn(Opcodes.CASTORE); break;
+                                    default: mv.visitInsn(Opcodes.AASTORE); break;
+                                }
+                            } else {
+                                mv.visitInsn(Opcodes.AASTORE);
+                            }
+                            
+                            // Call the function again with this reference
+                            mv.visitVarInsn(Opcodes.ALOAD, tempArrayIndex);
+                            mv.visitMethodInsn(Opcodes.INVOKESTATIC, currentClassName, funcName, func.descriptor, false);
+                            
+                            // Pop the return value if not void
+                            if (!"void".equals(returnType)) {
+                                if (isDoubleSlotType(returnType)) {
+                                    mv.visitInsn(Opcodes.POP2);
+                                } else {
+                                    mv.visitInsn(Opcodes.POP);
+                                }
+                            }
+                            
+                            // Extract the modified value from the array
+                            mv.visitVarInsn(Opcodes.ALOAD, tempArrayIndex);
+                            mv.visitInsn(Opcodes.ICONST_0);
+                            
+                            // Load the element from the array
+                            if (isPrimitiveGemType(varType)) {
+                                switch (varType) {
+                                    case "integer": mv.visitInsn(Opcodes.IALOAD); break;
+                                    case "number": mv.visitInsn(Opcodes.FALOAD); break;
+                                    case "boolean": mv.visitInsn(Opcodes.BALOAD); break;
+                                    case "char": mv.visitInsn(Opcodes.CALOAD); break;
+                                    default: mv.visitInsn(Opcodes.AALOAD); break;
+                                }
+                            } else {
+                                mv.visitInsn(Opcodes.AALOAD);
+                            }
+                            
+                            // Store it back to the original variable
+                            storeVariable(varName, varType, mv);
                         }
-                        argIndex++;
+                    }
+                    
+                    // Restore the function's return value if needed
+                    if (tempReturnVarIndex != -1) {
+                        loadVariable("__temp_return", returnType, mv);
                     }
                 }
             } else {

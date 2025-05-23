@@ -301,9 +301,17 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             String methodName = ctx.ID().getText();
             
             // Look up the method in the base type to get its return type
-            // For now, we'll check if it's a known method and return the appropriate type
-            if (methodName.equals("analyze") && baseType.equals("TextProcessor")) {
-                return "TextResponse";
+            if (baseType != null) {
+                // Special case for TextProcessor.analyze
+                if (methodName.equals("analyze") && baseType.equals("TextProcessor")) {
+                    return "TextResponse";
+                }
+                
+                // Check if there's a global function with this name
+                Symbol funcSymbol = globalScope.lookup(methodName);
+                if (funcSymbol != null && funcSymbol.getSymbolType().equals("function")) {
+                    return funcSymbol.getDataType();
+                }
             }
             
             // Default fallback
@@ -755,6 +763,13 @@ public class GemSemanticAnalyzer extends gemBaseVisitor<String> {
             String targetBaseType = targetType.substring(0, targetType.length() - 2);
             String sourceBaseType = sourceType.substring(0, sourceType.length() - 2);
             return isTypeCompatible(targetBaseType, sourceBaseType);
+        }
+        
+        // Special case for message passing - if the source is "object" or "TextResponse"
+        // and the target is "TextResponse", allow it
+        if ((sourceType.equals("object") || sourceType.equals("TextResponse")) &&
+            targetType.equals("TextResponse")) {
+            return true;
         }
 
         return false;
