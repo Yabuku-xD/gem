@@ -1,0 +1,73 @@
+-- Simple Calculator Program
+-- Shows user input, arithmetic operations, and basic conditional logic
+-- Expected output: Interactive calculator with basic operations
+
+start
+  print "=== Simple Calculator ==="
+  print "Enter two numbers and choose an operation"
+  print ""
+
+  print "Enter first number:"
+  integer num1 = read_integer()
+
+  print "Enter second number:"
+  integer num2 = read_integer()
+
+  print ""
+  print "Available Operations:"
+  print "1. Addition"
+  print "2. Subtraction"
+  print "3. Multiplication"
+  print "4. Division"
+  print "5. Remainder"
+  print ""
+
+  print "Choose operation (1-5):"
+  integer choice = read_integer()
+  integer result = 0
+
+  print ""
+  print "Calculation Result:"
+
+  if choice == 1
+    result = num1 + num2
+    print num1 + " + " + num2 + " = " + result
+  end if
+
+  if choice == 2
+    result = num1 - num2
+    print num1 + " - " + num2 + " = " + result
+  end if
+
+  if choice == 3
+    result = num1 * num2
+    print num1 + " * " + num2 + " = " + result
+  end if
+
+  if choice == 4
+    if num2 == 0
+      print "Error: Cannot divide by zero!"
+    end if
+    if num2 != 0
+      result = num1 / num2
+      print num1 + " / " + num2 + " = " + result
+    end if
+  end if
+
+  if choice == 5
+    if num2 == 0
+      print "Error: Cannot find remainder with zero!"
+    end if
+    if num2 != 0
+      result = num1 % num2
+      print num1 + " % " + num2 + " = " + result
+    end if
+  end if
+
+  if choice > 5
+    print "Invalid choice! Please select 1-5."
+  end if
+
+  print ""
+  print "Thank you for using the Simple Calculator!"
+finish

@@ -471,151 +471,177 @@ start
   print "Uppercase: " + uppercase_text
 finish
 ```
-`Program 13: Basic Calculator (basic_calculator.gem)`
+
+`Program 13: Simple Calculator (simple_calculator.gem)`
 ```python
--- Enhanced calculator program with more operations and features
--- Now that the compiler bug is fixed, we can add more functionality
+-- Simple Calculator Program
+-- Shows user input, arithmetic operations, and basic conditional logic
+-- Expected output: Interactive calculator with basic operations
 
 start
-  string continue_calc = "yes"
+  print "=== Simple Calculator ==="
+  print "Enter two numbers and choose an operation"
+  print ""
 
-  while continue_calc == "yes"
-    print "The only calculator you need!"
-    print "------------------"
+  print "Enter first number:"
+  integer num1 = read_integer()
 
-    print "Enter first number:"
-    integer num1 = read_integer()
+  print "Enter second number:"
+  integer num2 = read_integer()
 
-    print "Enter second number:"
-    integer num2 = read_integer()
+  print ""
+  print "Available Operations:"
+  print "1. Addition"
+  print "2. Subtraction"
+  print "3. Multiplication"
+  print "4. Division"
+  print "5. Remainder"
+  print ""
 
-    print "Available Operations:"
-    print "1. Addition"
-    print "2. Subtraction"
-    print "3. Multiplication"
-    print "4. Division"
-    print "5. Remainder/Modulus"
-    print "6. Integer Power (first^second)"
-    print "7. Square root (of first number)"
-    print "8. Maximum"
-    print "9. Minimum"
-    print "10. Exit"
+  print "Choose operation (1-5):"
+  integer choice = read_integer()
+  integer result = 0
 
-    print "Choose operation (1-10):"
-    integer choice = read_integer()
-    integer result = 0
+  print ""
+  print "Calculation Result:"
 
-    -- Addition
-    if choice == 1
-      result = num1 + num2
-      print num1 + " + " + num2 + " = " + result
+  if choice == 1
+    result = num1 + num2
+    print num1 + " + " + num2 + " = " + result
+  end if
 
-    -- Subtraction
-    else if choice == 2
-      result = num1 - num2
-      print num1 + " - " + num2 + " = " + result
+  if choice == 2
+    result = num1 - num2
+    print num1 + " - " + num2 + " = " + result
+  end if
 
-    -- Multiplication
-    else if choice == 3
-      result = num1 * num2
-      print num1 + " * " + num2 + " = " + result
+  if choice == 3
+    result = num1 * num2
+    print num1 + " * " + num2 + " = " + result
+  end if
 
-    -- Division
-    else if choice == 4
-      if num2 == 0
-        print "Error: Cannot divide by zero"
-      else
-        result = num1 / num2
-        print num1 + " / " + num2 + " = " + result
-
-        -- Show decimal approximation note for integer division
-        if num1 % num2 != 0
-          print "Note: Integer division truncates decimal portion"
-        end if
-      end if
-
-    -- Remainder/Modulus
-    else if choice == 5
-      if num2 == 0
-        print "Error: Cannot find remainder with zero"
-      else
-        result = num1 % num2
-        print num1 + " % " + num2 + " = " + result
-      end if
-
-    -- Integer Power (simple implementation for non-negative powers)
-    else if choice == 6
-      if num2 < 0
-        print "Error: Negative powers not supported in this calculator"
-      else
-        result = 1
-        integer i = 0
-        while i < num2
-          result = result * num1
-          i = i + 1
-        end while
-        print num1 + " ^ " + num2 + " = " + result
-      end if
-
-    -- Square root (integer approximation)
-    else if choice == 7
-      if num1 < 0
-        print "Error: Cannot calculate square root of negative number"
-      else if num1 == 0
-        result = 0
-        print "Square root of 0 = 0"
-      else
-        -- Simple integer square root algorithm
-        result = 1
-        while result * result <= num1
-          result = result + 1
-        end while
-        result = result - 1
-        print "Square root of " + num1 + " ≈ " + result + " (integer approximation)"
-      end if
-
-    -- Maximum
-    else if choice == 8
-      if num1 > num2
-        result = num1
-      else
-        result = num2
-      end if
-      print "Maximum of " + num1 + " and " + num2 + " = " + result
-
-    -- Minimum
-    else if choice == 9
-      if num1 < num2
-        result = num1
-      else
-        result = num2
-      end if
-      print "Minimum of " + num1 + " and " + num2 + " = " + result
-
-    -- Exit
-    else if choice == 10
-      print "Exiting calculator..."
-      continue_calc = "no"
-
-    -- Invalid choice
-    else
-      print "Invalid choice! Please select from options 1-10."
+  if choice == 4
+    if num2 == 0
+      print "Error: Cannot divide by zero!"
     end if
-
-    -- Ask if user wants to continue
-    if continue_calc != "no"
-      print "Do you want to perform another calculation?"
-      print "1. Yes"
-      print "2. No"
-
-      integer continue_choice = read_integer()
-      if continue_choice == 1
-        continue_calc = "yes"
-      else
-        continue_calc = "no"
-        print "Thank you for using the calculator!"
-      end if
+    if num2 != 0
+      result = num1 / num2
+      print num1 + " / " + num2 + " = " + result
     end if
-  end while
+  end if
+
+  if choice == 5
+    if num2 == 0
+      print "Error: Cannot find remainder with zero!"
+    end if
+    if num2 != 0
+      result = num1 % num2
+      print num1 + " % " + num2 + " = " + result
+    end if
+  end if
+
+  if choice > 5
+    print "Invalid choice! Please select 1-5."
+  end if
+
+  print ""
+  print "Thank you for using the Simple Calculator!"
+finish
+```
+
+`Program 14: Number Patterns (number_patterns.gem)`
+```python
+-- Number Patterns Program
+-- Shows nested loops, mathematical calculations, and pattern generation
+-- Expected output: Various number patterns including multiplication table,
+-- prime numbers, and geometric patterns
+
+start
+  print "=== Number Patterns Demo ==="
+  print ""
+
+  -- 1. Simple multiplication table
+  print "Multiplication Table (5x5):"
+  for row from 1 to 5
+    string line = ""
+    for col from 1 to 5
+      integer product = row * col
+      line = line + product + "\t"
+    end for
+    print line
+  end for
+  print ""
+
+  -- 2. Prime number checker (simple algorithm)
+  print "Prime numbers from 2 to 20:"
+  string primes = ""
+  for num from 2 to 20
+    boolean is_prime = yes
+    integer divisor = 2
+    
+    -- Check if num is divisible by any number from 2 to num/2
+    while divisor <= num / 2
+      if num % divisor == 0
+        is_prime = no
+        break
+      end if
+      divisor = divisor + 1
+    end while
+    
+    if is_prime
+      primes = primes + num + " "
+    end if
+  end for
+  print primes
+  print ""
+
+  -- 3. Triangle pattern with numbers
+  print "Number Triangle Pattern:"
+  for i from 1 to 5
+    string pattern = ""
+    
+    -- Add spaces for alignment
+    integer spaces = 5 - i
+    while spaces > 0
+      pattern = pattern + " "
+      spaces = spaces - 1
+    end while
+    
+    -- Add numbers
+    for j from 1 to i
+      pattern = pattern + j + " "
+    end for
+    
+    print pattern
+  end for
+  print ""
+
+  -- 4. Factorial calculation
+  print "Factorials from 1 to 8:"
+  for n from 1 to 8
+    integer factorial = 1
+    integer counter = 1
+    
+    while counter <= n
+      factorial = factorial * counter
+      counter = counter + 1
+    end while
+    
+    print n + "! = " + factorial
+  end for
+  print ""
+
+  -- 5. Sum of squares
+  print "Sum of squares from 1 to 10:"
+  integer sum_of_squares = 0
+  for i from 1 to 10
+    integer square = i * i
+    sum_of_squares = sum_of_squares + square
+    print i + "² = " + square + " (running sum: " + sum_of_squares + ")"
+  end for
+  print "Total sum of squares: " + sum_of_squares
+
+  print ""
+  print "=== End of Number Patterns Demo ==="
 finish
 ```
