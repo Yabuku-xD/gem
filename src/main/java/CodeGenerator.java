@@ -1164,6 +1164,9 @@ public class CodeGenerator {
                  mv.visitInsn(Opcodes.AALOAD);
             }
         } else if (ctx.ARROW() != null) {
+            // First generate the object reference
+            generateMessageExpression(ctx.messageExpression(), mv);
+            
             String objType = getMessageExpressionType(ctx.messageExpression());
             String methodName = ctx.ID().getText();
             
@@ -1184,9 +1187,13 @@ public class CodeGenerator {
             
             mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, objType, methodName, methodInfo.descriptor, false);
         } else if (ctx.DOT() != null) {
+            // First generate the object reference
+            generateMessageExpression(ctx.messageExpression(), mv);
+            
             String objType = getMessageExpressionType(ctx.messageExpression());
             String memberName = ctx.ID().getText();
             if (ctx.LPAREN() != null) {
+                // Method call
                 FunctionInfo methodInfo = typeMethods.getOrDefault(objType, Collections.emptyMap()).get(memberName);
                 if (methodInfo == null) throw new RuntimeException("Method " + memberName + " not found in " + objType);
                 if (ctx.argumentList() != null) {
@@ -1196,6 +1203,7 @@ public class CodeGenerator {
                 }
                 mv.visitMethodInsn(Opcodes.INVOKEVIRTUAL, objType, memberName, methodInfo.descriptor, false);
             } else {
+                // Field access
                 if (objType.endsWith("[]")) {
                     String elementType = objType.substring(0, objType.length() - 2);
                     mv.visitInsn(Opcodes.ICONST_0);
